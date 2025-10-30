@@ -33,11 +33,39 @@ chmod +x generate-rotated-sequences.sh
 sudo plymouth-set-default-theme -R volumio-adaptive
 ```
 
+### 5. Install runtime detection (recommended)
+
+**Important**: Runtime detection enables rotation changes without manual script edits.
+
+Quick install:
+```bash
+# Copy scripts
+sudo cp runtime-detection/00-plymouth-rotation /etc/initramfs-tools/scripts/init-premount/
+sudo cp runtime-detection/plymouth-rotation.sh /usr/local/bin/
+sudo cp runtime-detection/plymouth-rotation.service /etc/systemd/system/
+
+# Make executable
+sudo chmod +x /etc/initramfs-tools/scripts/init-premount/00-plymouth-rotation
+sudo chmod +x /usr/local/bin/plymouth-rotation.sh
+
+# Enable service
+sudo systemctl enable plymouth-rotation.service
+
+# Rebuild initramfs
+sudo update-initramfs -u
+```
+
+See: `runtime-detection/RUNTIME-DETECTION-INSTALL.md` for details.
+
 ## Changing Display Rotation
 
-**NO INITRAMFS REBUILD NEEDED!** Just edit cmdline.txt:
+**With runtime detection installed** (recommended):
 
 ### Edit kernel command line
+
+**Location varies by OS**:
+- Volumio: `/boot/cmdline.txt`
+- Pi OS Bookworm: `/boot/firmware/cmdline.txt`
 
 ```bash
 sudo nano /boot/cmdline.txt
@@ -63,12 +91,25 @@ splash plymouth.ignore-serial-consoles ... quiet ... nodebug use_kmsg=no video=H
 sudo reboot
 ```
 
+**NO manual script edits or initramfs rebuilds needed!**
+
+---
+
+**Without runtime detection**:
+1. Edit cmdline.txt (change plymouth= value)
+2. Edit script: `/usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script`
+3. Change `plymouth_rotation = 0;` to match plymouth= value
+4. Rebuild initramfs: `sudo update-initramfs -u`
+5. Reboot
+
 ## Volumio Configuration Files
 
+**Volumio/Pi OS Bookworm**:
 - **`/boot/config.txt`** - DO NOT MODIFY (build process managed)
-- **`/boot/volumioconfig.txt`** - DO NOT MODIFY (Volumio defaults)
+- **`/boot/volumioconfig.txt`** - DO NOT MODIFY (Volumio defaults, not on Pi OS)
 - **`/boot/userconfig.txt`** - USER EDITABLE (dtoverlay, hdmi_group, hdmi_mode)
 - **`/boot/cmdline.txt`** - USER EDITABLE (video=, rotate=, plymouth=, fbcon=)
+  - **Note**: Pi OS Bookworm uses `/boot/firmware/cmdline.txt` instead
 
 **Note**: Display rotation (video=, rotate=) and Plymouth parameter (plymouth=) go in cmdline.txt, NOT userconfig.txt.
 
@@ -199,6 +240,16 @@ sudo plymouth-set-default-theme -R volumio-player
 /boot/cmdline.txt (kernel parameters: video=, rotate=, plymouth=)
 ```
 
+**Note**: Pi OS Bookworm uses `/boot/firmware/cmdline.txt` instead of `/boot/cmdline.txt`
+
+### Runtime detection scripts (if installed)
+
+```
+/etc/initramfs-tools/scripts/init-premount/00-plymouth-rotation
+/usr/local/bin/plymouth-rotation.sh
+/etc/systemd/system/plymouth-rotation.service
+```
+
 ### Debug log (when using preview mode)
 
 ```
@@ -207,11 +258,11 @@ sudo plymouth-set-default-theme -R volumio-player
 
 ## Common Scenarios
 
-### Scenario 1: New display with different rotation
+### Scenario 1: New display with different rotation (with runtime detection)
 
-1. Edit `/boot/cmdline.txt` - update `video=`, `rotate=`, and `plymouth=` values
+1. Edit `/boot/cmdline.txt` (or `/boot/firmware/cmdline.txt` on Pi OS) - update `video=`, `rotate=`, and `plymouth=` values
 2. Reboot
-3. **NO theme reinstall needed!**
+3. **NO theme reinstall or initramfs rebuild needed!**
 
 ### Scenario 2: Testing different rotations
 
@@ -284,11 +335,14 @@ Debug outputs:
 
 ## Remember
 
-1. `plymouth=` parameter is INDEPENDENT of `rotate=` parameter
-2. Both `video=`, `rotate=`, and `plymouth=` go in `/boot/cmdline.txt` (single line)
-3. NO initramfs rebuild when changing parameters
-4. Formula: `plymouth_rotation = (360 - kernel_rotation) % 360`
-5. Default is `plymouth=0` if parameter omitted
-6. `/boot/userconfig.txt` is for hardware config only (dtoverlay, hdmi settings)
-7. Toggle parameters: change `debug`/`nodebug`, `quiet`/`noquiet`, `splash`/`nosplash`
-8. `plymouth.debug` is ADDED for debugging (not a toggle)
+1. **Runtime detection** (recommended): Enables rotation changes with just cmdline.txt edit + reboot
+2. `plymouth=` parameter is INDEPENDENT of `rotate=` parameter
+3. Both `video=`, `rotate=`, and `plymouth=` go in cmdline.txt (single line)
+4. **cmdline.txt location varies**: Volumio uses `/boot/`, Pi OS Bookworm uses `/boot/firmware/`
+5. **With runtime detection**: NO initramfs rebuild when changing rotation
+6. **Without runtime detection**: Manual script edit + initramfs rebuild required
+7. Formula: `plymouth_rotation = (360 - kernel_rotation) % 360`
+8. Default is `plymouth=0` if parameter omitted
+9. `/boot/userconfig.txt` is for hardware config only (dtoverlay, hdmi settings)
+10. Toggle parameters: change `debug`/`nodebug`, `quiet`/`noquiet`, `splash`/`nosplash`
+11. `plymouth.debug` is ADDED for debugging (not a toggle)

@@ -1,36 +1,37 @@
-# volumio-text.script - Rotation-adaptive text mode Plymouth theme
+#  volumio-text.script - Text mode Plymouth theme with rotation support
 #
-# Copyright (C) 2025 Volumio Srl
+#  Copyright (C) 2025 Volumio Srl
+#  
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+#  02111-1307, USA.
+#
+#  Written by: Volumio Team
+#  Modified by: Nerd (adaptive rotation support)
+#
+#  References:
+#    Freedesktop.org:
+#      https://www.freedesktop.org/wiki/Software/Plymouth/Scripts/
+#
 
 # --------------------------------- ROTATION DETECTION ------------------------
 
-# Parse /proc/cmdline for rotate= parameter
+# Rotation value patched at runtime by init-premount script
+# Default value (0 = landscape, no rotation)
+# Runtime detection will replace this line with actual rotate= value
+# Note: Text theme uses 'rotate=' not 'plymouth=' for coordinate transformation
 global.rotation = 0;
-
-cmdline_file = "/proc/cmdline";
-cmdline_contents = ReadFile(cmdline_file);
-
-if (cmdline_contents) {
-  # Search for rotate=N pattern
-  cmdline_str = cmdline_contents;
-  
-  # Simple parser - look for rotate= followed by digits
-  # Check for rotate=0, rotate=90, rotate=180, rotate=270
-  if (StringContains(cmdline_str, "rotate=90")) {
-    global.rotation = 90;
-  } else if (StringContains(cmdline_str, "rotate=180")) {
-    global.rotation = 180;
-  } else if (StringContains(cmdline_str, "rotate=270")) {
-    global.rotation = 270;
-  } else {
-    global.rotation = 0;
-  }
-}
 
 # --------------------------------- COORDINATE TRANSFORMATION -----------------
 

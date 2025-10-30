@@ -22,12 +22,13 @@ A Plymouth boot splash theme that dynamically adapts to display rotation.
 **Solution**: Pre-rotates images for all orientations (0, 90, 180, 270 degrees) and dynamically loads the correct set based on the `plymouth=` kernel parameter.
 
 **Features**:
-- Dynamic rotation detection from kernel command line
+- Runtime rotation detection (no initramfs rebuild required)
 - Pre-rotated image sequences for all orientations
-- No initramfs rebuild required for display changes
+- Works with Volumio OTA updates
 - Preserves all volumio-player theme features
 - Debug overlay with rotation information
 - Supports both micro (6 frame) and progress (90 frame) sequences
+- Init-premount and systemd service for boot/shutdown detection
 
 **Status**: Complete, tested on Raspberry Pi 5 with Waveshare 11.9" LCD
 
@@ -42,7 +43,7 @@ A rotation-adaptive text-based Plymouth boot theme for Volumio.
 **Solution**: Runtime coordinate transformation based on kernel rotation parameter. Dynamically repositions text elements for proper display at any orientation.
 
 **Features**:
-- Dynamic rotation detection from kernel command line
+- Runtime rotation detection (no initramfs rebuild required)
 - Runtime coordinate transformation for 0, 90, 180, 270 degrees
 - Text-only rendering (no image sequences)
 - Minimal storage footprint
@@ -50,6 +51,7 @@ A rotation-adaptive text-based Plymouth boot theme for Volumio.
 - Single-line system message display
 - Password prompt support
 - No generation script needed
+- Works with Volumio OTA updates
 
 **Use Cases**:
 - Fallback/test environments
@@ -101,7 +103,11 @@ splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enab
 **Key Points**:
 - `video=`, `rotate=`, `plymouth=`, and `fbcon=` ALL go in `/boot/cmdline.txt`
 - `/boot/userconfig.txt` is for hardware config only (dtoverlay, hdmi settings)
-- `/boot/cmdline.txt` must be single line with no line breaks
+- cmdline.txt must be single line with no line breaks
+
+**Important**: cmdline.txt location varies by OS:
+- Volumio 3.x/4.x: `/boot/cmdline.txt`
+- Raspberry Pi OS Bookworm: `/boot/firmware/cmdline.txt`
 
 ## Installation
 
@@ -133,8 +139,10 @@ See [AUTHORS](AUTHORS)
 ### Version 1.0 (October 30, 2025)
 - Initial release
 - volumio-plymouth-adaptive complete
-  - Dynamic rotation detection from kernel command line
+  - Runtime rotation detection (init-premount + systemd solution)
   - Pre-rotated image support for 0, 90, 180, 270 degrees
+  - No initramfs rebuild required for rotation changes
+  - Compatible with Volumio OTA updates
   - Complete documentation suite
   - Installation and quick reference guides
 - volumio-text-adaptive complete
@@ -143,6 +151,12 @@ See [AUTHORS](AUTHORS)
   - Minimal storage footprint
   - Fallback/test theme for constrained environments
   - Complete documentation suite
+
+### Technical Notes
+- Tested on Raspberry Pi OS Bookworm and Volumio 4.x
+- Works on all architectures (ARM, amd64)
+- Plymouth API limitations bypassed with init-premount scripting
+- Supports both boot and shutdown rotation adaptation
 
 ### Future Updates
 - This section will track additions and changes

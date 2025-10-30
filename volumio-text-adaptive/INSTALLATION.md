@@ -4,9 +4,13 @@ Installation Guide - Volumio Text Adaptive Theme
 REQUIREMENTS
 ------------
 
-- Volumio 3.x installation
+- Volumio 3.x/4.x or Raspberry Pi OS Bookworm
 - Root/sudo access
 - Plymouth package installed (included in Volumio)
+
+Note: cmdline.txt location varies by OS:
+- Volumio 3.x/4.x: /boot/cmdline.txt
+- Raspberry Pi OS Bookworm: /boot/firmware/cmdline.txt
 
 INSTALLATION STEPS
 ------------------
@@ -48,6 +52,28 @@ INSTALLATION STEPS
    
    Wait for completion (may take 1-2 minutes).
 
+4a. Install Runtime Detection (Optional but Recommended)
+   
+   Runtime detection eliminates manual script edits for rotation changes.
+   
+   The text theme uses the same runtime detection system as
+   volumio-plymouth-adaptive. If you have both themes, install once.
+   
+   See: volumio-plymouth-adaptive/runtime-detection/RUNTIME-DETECTION-INSTALL.md
+   
+   Quick summary:
+   1. Copy 00-plymouth-rotation to /etc/initramfs-tools/scripts/init-premount/
+   2. Copy plymouth-rotation.sh to /usr/local/bin/
+   3. Copy plymouth-rotation.service to /etc/systemd/system/
+   4. Enable service: sudo systemctl enable plymouth-rotation.service
+   5. Rebuild initramfs: sudo update-initramfs -u
+   
+   After runtime detection is installed:
+   - Rotation changes only require editing rotate= in cmdline.txt
+   - Reboot to apply changes
+   - No manual script edits needed
+   - No repeated initramfs rebuilds needed
+
 5. Configure Boot Parameters
    
    Edit /boot/cmdline.txt:
@@ -79,18 +105,21 @@ INSTALLATION STEPS
 ROTATION CONFIGURATION
 ----------------------
 
-If your display is physically rotated, configure both:
+If your display is physically rotated, configure rotation in cmdline.txt:
 
-1. Console rotation (in /boot/cmdline.txt):
-   rotate=90
-   
-2. Plymouth image selection (if using image theme):
-   plymouth=volumio-adaptive-90.png
+Location (varies by OS):
+- Volumio: /boot/cmdline.txt
+- Pi OS Bookworm: /boot/firmware/cmdline.txt
 
 For text theme:
 - Only rotate= parameter needed
-- Theme automatically adapts layout
-- No plymouth= parameter required
+- Theme automatically transforms coordinates
+- Values: rotate=0 (default), rotate=90, rotate=180, or rotate=270
+
+Example: rotate=270 (for portrait left orientation)
+
+Note: plymouth= parameter is used by image-based themes (volumio-plymouth-adaptive)
+and is NOT needed for text theme.
 
 TESTING WITHOUT REBOOT
 -----------------------
@@ -232,6 +261,10 @@ Enable Plymouth debug logging:
 COMMON CMDLINE.TXT EXAMPLES
 ----------------------------
 
+**Important:** cmdline.txt location varies by OS:
+- Volumio 3.x/4.x: /boot/cmdline.txt
+- Raspberry Pi OS Bookworm: /boot/firmware/cmdline.txt
+
 **Note:** Actual cmdline.txt varies per installation (UUIDs differ).
 These examples show typical Volumio format with relevant parameters.
 
@@ -243,6 +276,11 @@ splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enab
 **With 90-degree rotation** (add at end):
 ```
 splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no rotate=90
+```
+
+**Raspberry Pi OS format** (simpler):
+```
+console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait quiet splash logo.nologo vt.global_cursor_default=0 rotate=270
 ```
 
 **With debug enabled** (add at end):

@@ -31,6 +31,57 @@ Volumio uses a specific file hierarchy for boot configuration:
 
 **Critical**: Display rotation (`video=`, `rotate=`) and Plymouth parameters (`plymouth=`) go in **cmdline.txt**, not userconfig.txt.
 
+### Plymouth API Limitations (Critical Discovery)
+
+**Problem**: Plymouth's command line parsing APIs are broken on Debian Bookworm/Volumio 4.x:
+
+- `Plymouth.GetParameter()` - Returns NULL (cannot read parameters)
+- `Plymouth.GetKernelCommandLine()` - Returns NULL (cannot read cmdline)
+- `ReadFile("/proc/cmdline")` - Returns NULL (file I/O blocked)
+
+**Impact**: Script cannot detect rotation parameter at runtime using Plymouth APIs.
+
+**Root cause**: Plymouth security restrictions or API changes in recent versions prevent script access to kernel command line and file system.
+
+**Attempted solutions** (all failed):
+1. ParsePlymouthRotation() function using GetKernelCommandLine() - returned NULL
+2. ReadFile("/proc/cmdline") - returned NULL
+3. Plymouth.GetParameter("plymouth") - returned NULL
+
+### Runtime Detection Solution
+
+**Implementation**: Two-phase patching system that works OUTSIDE Plymouth:
+
+**Phase 1 - Boot (Init-Premount Script)**:
+1. Script runs in initramfs BEFORE Plymouth loads
+2. Reads /proc/cmdline (available in early boot, before Plymouth restrictions)
+3. Uses sed to patch plymouth_rotation value in script file
+4. Plymouth loads already-patched script with correct rotation
+
+**Phase 2 - Shutdown (Systemd Service)**:
+1. Service runs at system startup
+2. Patches installed script in /usr/share/plymouth/themes/
+3. Ensures shutdown/reboot use correct rotation
+
+**Key insight**: /proc/cmdline IS available in initramfs init-premount phase, but NOT available once Plymouth script executes. Solution: Patch the script before Plymouth loads it.
+
+**Files**:
+- `00-plymouth-rotation` - Init-premount script (boot phase)
+- `plymouth-rotation.sh` - Systemd script (shutdown phase)
+- `plymouth-rotation.service` - Service unit
+
+**Advantages**:
+- No initramfs rebuild needed for rotation changes
+- Works with broken Plymouth APIs
+- Compatible with Volumio OTA updates
+- User only needs to edit cmdline.txt and reboot
+
+**Disadvantage**:
+- Requires one-time installation of runtime detection system
+- Reboot required for rotation changes (cannot hot-swap)
+
+See `runtime-detection/RUNTIME-DETECTION-INSTALL.md` for installation instructions.
+
 ### Core Components
 
 1. **volumio-adaptive.script** - Plymouth script implementing rotation detection and dynamic image loading
@@ -40,20 +91,27 @@ Volumio uses a specific file hierarchy for boot configuration:
 
 ### Data Flow
 
+**With Runtime Detection** (recommended):
 ```
 Boot starts
   |
   v
-Kernel loads with plymouth= parameter
+Initramfs init-premount phase
+  |
+  v
+00-plymouth-rotation script reads /proc/cmdline
+  |
+  v
+Script patches plymouth_rotation value in theme script
   |
   v
 Plymouth reads volumio-adaptive.plymouth
   |
   v
-Plymouth executes volumio-adaptive.script
+Plymouth executes pre-patched volumio-adaptive.script
   |
   v
-ParsePlymouthRotation() reads plymouth= from command line
+Script reads plymouth_rotation variable (already set correctly)
   |
   v
 Script builds path: "sequence" + rotation + "/"
@@ -63,6 +121,29 @@ All Image() calls use selected directory
   |
   v
 Appropriate rotation displayed
+```
+
+**Without Runtime Detection**:
+```
+Boot starts
+  |
+  v
+Plymouth reads volumio-adaptive.plymouth
+  |
+  v
+Plymouth executes volumio-adaptive.script
+  |
+  v
+Script reads hardcoded plymouth_rotation value
+  |
+  v
+Script builds path: "sequence" + rotation + "/"
+  |
+  v
+All Image() calls use selected directory
+  |
+  v
+Rotation displayed (must manually edit script for changes)
 ```
 
 ## Plymouth Script Engine

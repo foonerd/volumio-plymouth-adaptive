@@ -19,9 +19,10 @@ FEATURES
 --------
 
 1. Rotation Adaptation
-   - Automatically detects rotate= parameter from /boot/cmdline.txt
-   - Transforms layout for 0, 90, 180, 270 degree rotation
+   - Runtime detection automatically patches rotation value at boot
+   - Supports 0, 90, 180, 270 degree rotation
    - Maintains proper text orientation and centering
+   - No initramfs rebuild needed for rotation changes (with runtime detection)
 
 2. Text Display
    - "Volumio Player" title centered on screen
@@ -38,6 +39,12 @@ FEATURES
    - No animation sequences
    - Pure text rendering
    - Small storage footprint
+
+5. Runtime Detection Support (Optional)
+   - Shares runtime detection system with volumio-plymouth-adaptive
+   - Init-premount script patches rotation before boot
+   - Systemd service patches for shutdown/reboot
+   - One-time setup, zero maintenance
 
 INSTALLATION
 ------------
@@ -61,20 +68,34 @@ INSTALLATION
 ROTATION CONFIGURATION
 ----------------------
 
-Theme reads rotation from /boot/cmdline.txt automatically.
+Theme uses rotate= parameter for coordinate transformation.
 
-Example cmdline.txt with rotation:
+IMPORTANT: cmdline.txt location varies by OS:
+- Volumio 3.x/4.x: /boot/cmdline.txt
+- Raspberry Pi OS Bookworm: /boot/firmware/cmdline.txt
 
-dwc_otg.lpm_enable=0 console=serial0,115200 console=tty3 
-rootwait plymouth.ignore-serial-consoles quiet splash 
-logo.nologo vt.global_cursor_default=0 rotate=90 
-plymouth=volumio-text-90.png
+Edit cmdline.txt (must be single line, space-separated):
+
+For Volumio (real example format):
+console=serial0,115200 console=tty1 root=PARTUUID=ea7d04d6-02 rootfstype=ext4 elevator=noop rootwait splash plymouth.ignore-serial-consoles imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh use_kmsg=no quiet loglevel=0 logo.nologo vt.global_cursor_default=0 rotate=270
+
+For Raspberry Pi OS:
+console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait rotate=270
 
 Supported rotations:
-- rotate=0   (default, no rotation)
+- rotate=0   (default, landscape, no rotation)
 - rotate=90  (portrait right)
 - rotate=180 (upside down)
 - rotate=270 (portrait left)
+
+Runtime Detection (Recommended):
+With runtime detection installed, changing rotation only requires:
+1. Edit rotate= value in cmdline.txt
+2. Reboot
+3. Done - no manual script edits or initramfs rebuilds
+
+See volumio-plymouth-adaptive/runtime-detection/RUNTIME-DETECTION-INSTALL.md
+for installation instructions.
 
 COORDINATE TRANSFORMATION
 -------------------------
@@ -154,15 +175,22 @@ COMPARISON TO IMAGE THEME
 volumio-plymouth-adaptive (image-based):
 - Pre-rendered PNG sequences
 - Smooth animation
-- Higher storage requirements
+- Higher storage requirements (~400MB for 4 rotations)
 - Requires sequence generation
+- Uses plymouth= parameter
+- With runtime detection: rotation changes require reboot only
 
 volumio-text (this theme):
 - Text rendering only
 - No animation
-- Minimal storage
+- Minimal storage (<10KB)
 - No generation needed
+- Uses rotate= parameter
+- With runtime detection: rotation changes require reboot only
 - Fallback for constrained environments
+
+Both themes support the same runtime detection system and can be
+installed simultaneously.
 
 FONT ADAPTATION
 ---------------
@@ -191,10 +219,13 @@ TECHNICAL DETAILS
 -----------------
 
 Script Language: Plymouth Script
-Rotation Detection: /proc/cmdline parsing
-Coordinate System: Transformed per rotation
+Rotation Detection: Runtime patching via init-premount script
+Coordinate System: Transformed per rotation at runtime
 Text Rendering: Plymouth Image.Text API
 Z-ordering: Title/Message=10, Password=100
+
+Note: Plymouth APIs for reading /proc/cmdline are broken in current versions.
+Runtime detection solves this by patching the script before Plymouth loads it.
 
 FILES
 -----

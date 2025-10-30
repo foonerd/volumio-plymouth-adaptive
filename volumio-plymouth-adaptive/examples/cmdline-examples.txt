@@ -2,6 +2,32 @@ VOLUMIO-ADAPTIVE PLYMOUTH THEME
 Command Line Configuration Examples
 ====================================
 
+RUNTIME DETECTION (RECOMMENDED)
+--------------------------------
+
+This theme supports optional runtime detection that eliminates the need
+for manual script edits and initramfs rebuilds when changing rotation.
+
+With runtime detection installed:
+1. Edit plymouth= value in cmdline.txt
+2. Reboot
+3. Done - rotation changes automatically
+
+See: runtime-detection/RUNTIME-DETECTION-INSTALL.md for installation.
+
+Without runtime detection, you must manually edit the theme script and
+rebuild initramfs for each rotation change.
+
+CMDLINE.TXT LOCATION (IMPORTANT)
+---------------------------------
+
+Location varies by operating system:
+
+- Volumio 3.x/4.x:           /boot/cmdline.txt
+- Raspberry Pi OS Bookworm:  /boot/firmware/cmdline.txt
+
+All examples below use Volumio paths. For Pi OS, use /boot/firmware/ instead.
+
 VOLUMIO CONFIGURATION FILES
 ----------------------------
 
@@ -174,16 +200,42 @@ NOTE: video= and rotate= do NOT go here - they go in cmdline.txt
 TESTING CHANGES
 ---------------
 
-After editing cmdline.txt:
+With runtime detection installed:
+1. Edit plymouth= in cmdline.txt
+2. sudo reboot
+3. Theme automatically uses new rotation
 
-sudo reboot
+Without runtime detection:
+1. Edit plymouth= in cmdline.txt
+2. Edit /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+3. Change plymouth_rotation value to match
+4. sudo update-initramfs -u
+5. sudo reboot
 
-To test without rebooting (preview only):
-
+To test without rebooting (preview only, may not reflect actual rotation):
 sudo plymouthd --debug
 sudo plymouth show-splash
 # Wait 10 seconds
 sudo plymouth quit
+
+RASPBERRY PI OS FORMAT EXAMPLES
+--------------------------------
+
+Pi OS uses simpler cmdline.txt format (no Volumio-specific parameters):
+
+LANDSCAPE (no rotation):
+console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait quiet splash logo.nologo vt.global_cursor_default=0 plymouth=0
+
+PORTRAIT (rotate 270, plymouth 90):
+console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait quiet splash logo.nologo vt.global_cursor_default=0 rotate=270 plymouth=90
+
+UPSIDE-DOWN (rotate 180, plymouth 180):
+console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait quiet splash logo.nologo vt.global_cursor_default=0 rotate=180 plymouth=180
+
+WITH VIDEO PARAMETER:
+console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait quiet splash logo.nologo vt.global_cursor_default=0 video=HDMI-A-1:1920x1080M@60,rotate=270 plymouth=90
+
+Note: Pi OS cmdline.txt location is /boot/firmware/cmdline.txt (not /boot/)
 
 TROUBLESHOOTING
 ---------------

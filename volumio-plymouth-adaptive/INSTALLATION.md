@@ -4,13 +4,18 @@ Complete installation and testing instructions
 
 ## Overview
 
-This package provides a universal Plymouth boot splash theme that adapts to different display rotations without requiring initramfs rebuilds. The theme reads a `plymouth=` parameter from the kernel command line and dynamically loads the appropriately rotated image sequence.
+This package provides a universal Plymouth boot splash theme that adapts to different display rotations. With the optional runtime detection system (recommended), rotation changes require only editing cmdline.txt and rebooting - no initramfs rebuilds needed. The theme uses pre-rendered image sequences for each rotation (0, 90, 180, 270 degrees).
 
 ## Package Contents
 
-1. `volumio-adaptive.script` - Main Plymouth script with rotation parsing
+1. `volumio-adaptive.script` - Main Plymouth script with rotation support
 2. `volumio-adaptive.plymouth` - Theme configuration file
 3. `generate-rotated-sequences.sh` - Image generation script
+4. `runtime-detection/` - Optional runtime detection system (recommended)
+   - `00-plymouth-rotation` - Init-premount script
+   - `plymouth-rotation.sh` - Systemd script
+   - `plymouth-rotation.service` - Service unit
+   - `RUNTIME-DETECTION-INSTALL.md` - Installation guide
 
 ## Prerequisites
 
@@ -86,6 +91,26 @@ This command:
 - Rebuilds initramfs with the new theme (-R flag)
 
 **IMPORTANT**: Wait for initramfs rebuild to complete (may take 1-2 minutes)
+
+### Step 6: Install Runtime Detection (Recommended)
+
+Runtime detection eliminates the need for manual script edits and initramfs rebuilds when changing display rotation. This is a one-time setup.
+
+**See [runtime-detection/RUNTIME-DETECTION-INSTALL.md](runtime-detection/RUNTIME-DETECTION-INSTALL.md) for detailed instructions.**
+
+Quick summary:
+1. Copy `00-plymouth-rotation` to `/etc/initramfs-tools/scripts/init-premount/`
+2. Copy `plymouth-rotation.sh` to `/usr/local/bin/`
+3. Copy `plymouth-rotation.service` to `/etc/systemd/system/`
+4. Enable the service: `systemctl enable plymouth-rotation.service`
+5. Rebuild initramfs: `sudo update-initramfs -u`
+
+After runtime detection is installed:
+- Rotation changes only require editing cmdline.txt and rebooting
+- No manual script edits needed
+- No repeated initramfs rebuilds needed
+
+**Without runtime detection**, you must manually edit the script and rebuild initramfs for each rotation change.
 
 ## Configuration
 
@@ -416,3 +441,4 @@ For issues or questions:
 - Micro and progress sequence support
 - Debug overlay
 - No initramfs rebuild needed for rotation changes
+- 

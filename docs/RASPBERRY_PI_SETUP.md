@@ -27,17 +27,22 @@ Volumio uses a specific hierarchy for boot configuration:
 
 ### /boot/userconfig.txt
 **USER EDITABLE**
-- Display configuration goes here
-- rotate= parameter
-- video= parameter
-- hdmi_group, hdmi_mode if needed
+- Hardware configuration only
+- dtoverlay settings
+- hdmi_group, hdmi_mode settings
+- display_rotate (legacy, deprecated - use video= rotate= in cmdline.txt instead)
 - User changes preserved
+- IMPORTANT: video= and rotate= parameters go in cmdline.txt, NOT here
 
 ### /boot/cmdline.txt
 **USER EDITABLE**
-- Kernel command line
+- Kernel command line parameters
+- CRITICAL: video= and rotate= parameters MUST go here
 - plymouth= parameter goes here
-- One line, space-separated parameters
+- One line only, space-separated parameters
+- Location varies by OS:
+  - Volumio 3.x/4.x: /boot/cmdline.txt
+  - Pi OS Bookworm: /boot/firmware/cmdline.txt
 
 ## Display Detection
 
@@ -74,16 +79,20 @@ console=serial0,115200 console=tty1 root=PARTUUID=xxxx rootfstype=ext4 fsck.repa
 
 /boot/userconfig.txt:
 ```
-# Waveshare 11.9" example (320x1480 native portrait)
-video=HDMI-A-1:320x1480M@60,rotate=270
+# Hardware settings only - no video= or rotate= here
+# Optional: Force specific hdmi settings if needed
+# hdmi_group=2
+# hdmi_mode=87
 ```
 
 /boot/cmdline.txt:
 ```
-console=serial0,115200 console=tty1 root=PARTUUID=xxxx rootfstype=ext4 fsck.repair=yes rootwait plymouth=90 quiet splash
+console=serial0,115200 console=tty1 root=PARTUUID=xxxx rootfstype=ext4 fsck.repair=yes rootwait video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90 quiet splash
 ```
 
-### Portrait Display - Method 2 (Legacy Rotation)
+Note: video= and rotate= MUST be in cmdline.txt (single line with all other parameters).
+
+### Portrait Display - Method 2 (Legacy Rotation - DEPRECATED)
 
 /boot/userconfig.txt:
 ```
@@ -95,7 +104,58 @@ display_rotate=3
 console=serial0,115200 console=tty1 root=PARTUUID=xxxx rootfstype=ext4 fsck.repair=yes rootwait plymouth=90 quiet splash
 ```
 
-Note: display_rotate is legacy, use video= rotate= when possible.
+Note: display_rotate is legacy and deprecated. Use video= rotate= in cmdline.txt (Method 1) instead.
+
+## Runtime Detection (Recommended)
+
+The volumio-plymouth-adaptive theme includes optional runtime detection that eliminates manual script edits when changing rotation.
+
+### What Runtime Detection Does
+
+- Automatically patches theme scripts at boot based on cmdline.txt parameters
+- Eliminates need for manual script edits
+- Eliminates need for repeated initramfs rebuilds
+- One-time installation, zero maintenance
+
+### Installation
+
+See: volumio-plymouth-adaptive/runtime-detection/RUNTIME-DETECTION-INSTALL.md
+
+Quick summary:
+```bash
+# Copy scripts
+sudo cp runtime-detection/00-plymouth-rotation /etc/initramfs-tools/scripts/init-premount/
+sudo cp runtime-detection/plymouth-rotation.sh /usr/local/bin/
+sudo cp runtime-detection/plymouth-rotation.service /etc/systemd/system/
+
+# Make executable
+sudo chmod +x /etc/initramfs-tools/scripts/init-premount/00-plymouth-rotation
+sudo chmod +x /usr/local/bin/plymouth-rotation.sh
+
+# Enable service
+sudo systemctl enable plymouth-rotation.service
+
+# Rebuild initramfs (one time)
+sudo update-initramfs -u
+```
+
+### After Runtime Detection is Installed
+
+To change display rotation:
+1. Edit /boot/cmdline.txt (change plymouth= or rotate= values)
+2. Reboot
+3. Done - no manual edits, no rebuilds
+
+### Without Runtime Detection
+
+Without runtime detection installed:
+1. Edit /boot/cmdline.txt (change plymouth= value)
+2. Edit /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+3. Change plymouth_rotation value manually
+4. Rebuild initramfs: sudo update-initramfs -u
+5. Reboot
+
+Runtime detection is highly recommended for ease of use.
 
 ## Common Display Types
 
@@ -105,12 +165,12 @@ Portrait mode:
 
 /boot/userconfig.txt:
 ```
-video=DSI-1:800x480M@60,rotate=90
+# Hardware only - no video= here
 ```
 
 /boot/cmdline.txt:
 ```
-plymouth=270
+console=serial0,115200 console=tty1 root=PARTUUID=xxxx rootfstype=ext4 fsck.repair=yes rootwait video=DSI-1:800x480M@60,rotate=90 plymouth=270 quiet splash
 ```
 
 ### Waveshare Displays
@@ -119,24 +179,24 @@ plymouth=270
 
 /boot/userconfig.txt:
 ```
-video=HDMI-A-1:320x1480M@60,rotate=270
+# Hardware only
 ```
 
 /boot/cmdline.txt:
 ```
-plymouth=90
+console=serial0,115200 console=tty1 root=PARTUUID=xxxx rootfstype=ext4 fsck.repair=yes rootwait video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90 quiet splash
 ```
 
 7" HDMI (1024x600):
 
 /boot/userconfig.txt:
 ```
-video=HDMI-A-1:1024x600M@60
+# Hardware only
 ```
 
 /boot/cmdline.txt:
 ```
-plymouth=0
+console=serial0,115200 console=tty1 root=PARTUUID=xxxx rootfstype=ext4 fsck.repair=yes rootwait video=HDMI-A-1:1024x600M@60 plymouth=0 quiet splash
 ```
 
 ### Generic HDMI Display
@@ -400,12 +460,12 @@ Orientation: Portrait (cable at top)
 
 /boot/userconfig.txt:
 ```
-video=DSI-1:800x480M@60,rotate=270
+# Hardware only
 ```
 
 /boot/cmdline.txt:
 ```
-console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait plymouth=90 quiet splash
+console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait video=DSI-1:800x480M@60,rotate=270 plymouth=90 quiet splash
 ```
 
 ### Configuration 3: Tall Portrait Display
@@ -415,12 +475,12 @@ Orientation: Portrait (cable at bottom)
 
 /boot/userconfig.txt:
 ```
-video=HDMI-A-1:320x1480M@60,rotate=270
+# Hardware only
 ```
 
 /boot/cmdline.txt:
 ```
-console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait plymouth=90 quiet splash
+console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90 quiet splash
 ```
 
 ## Safety Tips

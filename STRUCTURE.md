@@ -13,7 +13,7 @@ volumio-adaptive-themes/
   STRUCTURE.md             - This file
   
   volumio-plymouth-adaptive/   - Plymouth boot splash theme
-  volumio-text-adaptive/       - Text-based UI theme (planned)
+  volumio-text-adaptive/       - Text-based Plymouth theme
   docs/                        - Shared documentation
   .github/                     - GitHub templates and workflows
 ```
@@ -28,6 +28,12 @@ volumio-plymouth-adaptive/
   volumio-adaptive.script      - Main Plymouth script (8.4 KB)
   volumio-adaptive.plymouth    - Theme configuration (296 bytes)
   generate-rotated-sequences.sh - Image generation script (4.1 KB)
+  
+  runtime-detection/
+    00-plymouth-rotation       - Init-premount script for boot detection
+    plymouth-rotation.service  - Systemd service for shutdown detection
+    plymouth-rotation.sh       - Runtime detection script
+    INSTALL.md                 - Installation guide for runtime detection
   
   examples/
     cmdline-examples.txt       - Example kernel command lines
@@ -96,6 +102,11 @@ Examples of configuration files show:
 - Proper parameter placement
 - Real-world working configurations
 
+Note: cmdline.txt location varies by OS:
+- Volumio 3.x/4.x: /boot/cmdline.txt
+- Raspberry Pi OS Bookworm: /boot/firmware/cmdline.txt
+- Runtime detection scripts handle both locations automatically
+
 ### Separation of Concerns
 
 Each theme type has its own directory:
@@ -103,6 +114,21 @@ Each theme type has its own directory:
 - Own installation guide
 - Own documentation
 - Shared docs only in root docs/ directory
+
+### Runtime Detection Solution
+
+The runtime-detection/ subdirectory contains:
+- Init-premount script for early boot patching
+- Systemd service for shutdown detection
+- Separate installation guide
+
+Design rationale:
+- Plymouth API limitations (GetParameter, GetKernelCommandLine return NULL)
+- /proc/cmdline not accessible from Plymouth script in initramfs
+- Two-phase solution: boot (init-premount) + shutdown (systemd)
+- Enables true rotation adaptation without initramfs rebuild
+- Critical for Volumio OTA update compatibility
+- User copies files to system locations during installation
 
 ### GitHub Integration
 

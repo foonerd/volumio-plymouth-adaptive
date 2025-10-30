@@ -9,11 +9,30 @@ Volumio-adaptive is a Plymouth boot splash theme that solves the display rotatio
 ## Key Features
 
 - ONE theme works across ALL display orientations
-- NO initramfs rebuild needed when changing displays
+- NO initramfs rebuild needed when changing displays (with runtime detection)
 - Supports 0, 90, 180, and 270 degree rotations
+- Runtime detection automatically patches rotation value at boot
 - Automatic micro/progress sequence selection based on screen size
 - Preserves all volumio-player features (messages, debug overlay)
 - Self-contained and portable
+
+## Runtime Detection (Recommended)
+
+The theme includes an optional runtime detection system that eliminates the need for initramfs rebuilds when changing display rotation:
+
+- **Init-premount script** patches the theme script before Plymouth loads at boot
+- **Systemd service** patches the installed theme for shutdown/reboot
+- **One-time setup** required during initial installation
+- **Zero maintenance** after setup - rotation changes only require editing cmdline.txt and rebooting
+
+With runtime detection installed:
+1. Edit rotation in /boot/cmdline.txt
+2. Reboot
+3. Done - no theme reinstall or initramfs rebuild
+
+See `runtime-detection/RUNTIME-DETECTION-INSTALL.md` for installation instructions.
+
+Without runtime detection, the theme still works but requires manually editing the script and rebuilding initramfs for each rotation change.
 
 ## The Problem It Solves
 
@@ -27,9 +46,14 @@ Standard Plymouth themes fail on Raspberry Pi with rotated displays because:
 
 ## Package Contents
 
-- `volumio-adaptive.script` - Main Plymouth script with rotation parsing
+- `volumio-adaptive.script` - Main Plymouth script with rotation support
 - `volumio-adaptive.plymouth` - Theme configuration file
 - `generate-rotated-sequences.sh` - Image generation script
+- `runtime-detection/` - Optional runtime detection scripts (recommended)
+  - `00-plymouth-rotation` - Init-premount script for boot phase
+  - `plymouth-rotation.sh` - Systemd script for shutdown phase
+  - `plymouth-rotation.service` - Systemd service unit
+  - `RUNTIME-DETECTION-INSTALL.md` - Installation guide
 - `INSTALLATION.md` - Detailed installation instructions
 - `QUICK_REFERENCE.md` - Quick command reference
 - `README.md` - This file
@@ -121,11 +145,18 @@ Use these `plymouth=` values based on your kernel `rotate=` setting:
 
 When you change to a display with different rotation:
 
+**With runtime detection installed** (recommended):
 1. Edit `/boot/cmdline.txt`
 2. Update `video=`, `rotate=`, and `plymouth=` parameters on the existing line
 3. Reboot
 
 **NO theme reinstall or initramfs rebuild needed!**
+
+**Without runtime detection**:
+1. Edit `/boot/cmdline.txt` (update parameters)
+2. Edit `/usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script` (change plymouth_rotation value)
+3. Rebuild initramfs: `sudo update-initramfs -u`
+4. Reboot
 
 Example: Change from landscape to portrait:
 ```
@@ -158,11 +189,21 @@ Each sequence directory contains 97 image files.
 
 ### How It Works
 
-1. Plymouth script parses `plymouth=XX` from kernel command line
-2. Script builds image path: `sequenceXX/`
-3. All Image() calls load from selected directory
-4. For portrait modes (90, 270), dimensions are swapped for sequence logic
-5. Micro sequence activates when (width <= 640) && (height <= 640)
+**With runtime detection** (recommended):
+1. Init-premount script reads plymouth= from /proc/cmdline before Plymouth loads
+2. Script patches plymouth_rotation value in theme script
+3. Plymouth loads pre-patched script with correct rotation
+4. Script builds image path: `sequenceXX/`
+5. All Image() calls load from selected directory
+6. For portrait modes (90, 270), dimensions are swapped for sequence logic
+7. Micro sequence activates when (width <= 640) && (height <= 640)
+
+**Without runtime detection**:
+1. Theme script has hardcoded plymouth_rotation value
+2. Must manually edit and rebuild initramfs for each rotation change
+3. Rest of process same as above
+
+See `docs/TECHNICAL.md` for detailed information on Plymouth API limitations and runtime detection implementation.
 
 ### Performance
 
@@ -249,7 +290,9 @@ sudo plymouth-set-default-theme -R volumio-player
 ## Limitations
 
 - Supports four fixed rotations (0, 90, 180, 270)
-- Requires initramfs rebuild only for theme installation
+- Requires one-time initramfs rebuild for initial theme installation
+- With runtime detection: rotation changes only require reboot (no rebuild)
+- Without runtime detection: each rotation change requires manual script edit and initramfs rebuild
 - Image generation requires disk space (4x source images)
 - Custom rotations require manual image creation
 
@@ -271,9 +314,11 @@ This program is free software; you can redistribute it and/or modify it under th
 
 For issues or questions:
 1. Check [INSTALLATION.md](INSTALLATION.md) for detailed steps
-2. Review [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for commands
-3. Enable debug overlay to diagnose issues
-4. Report to Volumio development team with debug log
+2. Review [runtime-detection/RUNTIME-DETECTION-INSTALL.md](runtime-detection/RUNTIME-DETECTION-INSTALL.md) for runtime detection setup
+3. Review [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for commands
+4. Check [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues
+5. Enable debug overlay to diagnose issues
+6. Report to Volumio development team with debug log
 
 ## Project Status
 
@@ -285,10 +330,10 @@ For issues or questions:
 ## Future Enhancements
 
 Potential improvements:
-- Auto-detection of rotation from `rotate=` parameter
 - Support for arbitrary rotation angles
 - Integration with Volumio settings UI
 - Automatic image generation during theme installation
+- Text-based theme variant (coordinate transformation instead of pre-rendered images)
 
 ## Additional Resources
 
@@ -303,3 +348,4 @@ Thanks to:
 - Freedesktop.org for Plymouth
 - Volumio team for the audio distribution
 - Community members for testing and feedback
+- 

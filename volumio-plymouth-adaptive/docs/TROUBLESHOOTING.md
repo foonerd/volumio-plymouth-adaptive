@@ -18,7 +18,117 @@ ls -d /usr/share/plymouth/themes/volumio-adaptive/sequence*/
 
 # 4. Check Plymouth service status
 systemctl status plymouth-start.service
+
+# 5. If using runtime detection, verify scripts are installed
+ls -l /etc/initramfs-tools/scripts/init-premount/00-plymouth-rotation
+ls -l /usr/local/bin/plymouth-rotation.sh
+systemctl status plymouth-rotation.service
 ```
+
+## Problem: Runtime Detection Not Working
+
+### Symptom
+
+Changed plymouth= in cmdline.txt and rebooted, but wrong rotation still displays.
+
+### Diagnosis Steps
+
+**Step 1: Verify runtime detection scripts are installed**
+
+```bash
+# Check init-premount script
+ls -l /etc/initramfs-tools/scripts/init-premount/00-plymouth-rotation
+
+# Check systemd script
+ls -l /usr/local/bin/plymouth-rotation.sh
+
+# Check service unit
+ls -l /etc/systemd/system/plymouth-rotation.service
+```
+
+If missing, install from `runtime-detection/` directory (see RUNTIME-DETECTION-INSTALL.md).
+
+**Step 2: Verify init-premount script is executable**
+
+```bash
+sudo chmod +x /etc/initramfs-tools/scripts/init-premount/00-plymouth-rotation
+sudo update-initramfs -u
+```
+
+**Step 3: Check if script is in initramfs**
+
+```bash
+lsinitramfs /boot/initrd.img-$(uname -r) | grep 00-plymouth-rotation
+```
+
+Should show: `scripts/init-premount/00-plymouth-rotation`
+
+If missing, rebuild initramfs:
+
+```bash
+sudo update-initramfs -u
+```
+
+**Step 4: Verify systemd service is enabled**
+
+```bash
+systemctl status plymouth-rotation.service
+```
+
+If not enabled:
+
+```bash
+sudo systemctl enable plymouth-rotation.service
+sudo systemctl start plymouth-rotation.service
+```
+
+**Step 5: Check if rotation value is being patched**
+
+```bash
+# Check boot phase (initramfs)
+sudo lsinitramfs /boot/initrd.img-$(uname -r) | \
+  xargs -I {} sudo cpio -i --to-stdout {} < /boot/initrd.img-$(uname -r) 2>/dev/null | \
+  grep "plymouth_rotation = "
+
+# Check shutdown phase (installed script)
+grep "plymouth_rotation = " /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+```
+
+Should show current rotation value from cmdline.txt.
+
+**Step 6: Test runtime detection manually**
+
+```bash
+# Test what value would be detected
+grep -o "plymouth=[0-9]*" /proc/cmdline
+
+# Manually run systemd script
+sudo /usr/local/bin/plymouth-rotation.sh
+
+# Check if script was patched
+grep "plymouth_rotation = " /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+```
+
+**Step 7: Check script syntax**
+
+```bash
+# Verify init-premount script
+sudo sh -n /etc/initramfs-tools/scripts/init-premount/00-plymouth-rotation
+
+# Verify systemd script
+sudo bash -n /usr/local/bin/plymouth-rotation.sh
+```
+
+No output means syntax is correct. Errors indicate script corruption.
+
+### Common Causes
+
+1. **Scripts not installed**: Follow runtime-detection/RUNTIME-DETECTION-INSTALL.md
+2. **Scripts not executable**: Run `chmod +x` on both scripts
+3. **Init-premount not in initramfs**: Run `update-initramfs -u`
+4. **Service not enabled**: Run `systemctl enable plymouth-rotation.service`
+5. **Wrong rotation in cmdline.txt**: Verify plymouth= parameter exists
+6. **Typo in script**: Re-copy from runtime-detection/ directory
 
 ## Problem: Plymouth Not Displaying at Boot
 
@@ -550,3 +660,4 @@ sudo plymouth-set-default-theme -R volumio-adaptive
 3. Make one change at a time
 4. Document working configurations
 5. Keep original theme files as backup
+6. 

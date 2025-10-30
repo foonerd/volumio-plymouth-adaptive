@@ -66,11 +66,10 @@ Console sees:
 +-----------------+
 
 Physical display rotated 270 CCW:
-        +-------+
-  TOP   |       |
-  -->   |       |
-        |       |
-        +-------+
++-----------------+
+|  TOP -->        |
+|                 |
++-----------------+
 ```
 
 ### plymouth=90 (images rotated 90 CW)
@@ -103,45 +102,113 @@ To see the picture correctly through a rotated window, you must rotate the pictu
 
 Native orientation - no rotation needed:
 ```
-/boot/userconfig.txt:
-video=HDMI-A-1:1920x1080M@60
-
 /boot/cmdline.txt:
+video=HDMI-A-1:1920x1080M@60 plymouth=0
+
+Or (simplified):
 plymouth=0
 ```
+
+Note: video= parameter goes in cmdline.txt, not userconfig.txt
 
 ### Portrait Display - Top at Right
 
 Rotate display 90 CCW, images 270 CW:
 ```
-/boot/userconfig.txt:
-video=HDMI-A-1:1080x1920M@60,rotate=90
-
 /boot/cmdline.txt:
-plymouth=270
+video=HDMI-A-1:1080x1920M@60,rotate=90 plymouth=270
 ```
 
 ### Portrait Display - Top at Left
 
 Rotate display 270 CCW, images 90 CW:
 ```
-/boot/userconfig.txt:
-video=HDMI-A-1:1080x1920M@60,rotate=270
-
 /boot/cmdline.txt:
-plymouth=90
+video=HDMI-A-1:1080x1920M@60,rotate=270 plymouth=90
 ```
 
 ### Upside-Down Display
 
 Rotate display 180, images 180:
 ```
-/boot/userconfig.txt:
-video=HDMI-A-1:1920x1080M@60,rotate=180
-
 /boot/cmdline.txt:
-plymouth=180
+video=HDMI-A-1:1920x1080M@60,rotate=180 plymouth=180
 ```
+
+### Important: cmdline.txt Location
+
+Location varies by operating system:
+- Volumio 3.x/4.x: /boot/cmdline.txt
+- Raspberry Pi OS Bookworm: /boot/firmware/cmdline.txt
+
+All parameters (video=, rotate=, plymouth=) must be on a single line in cmdline.txt.
+
+## Text Theme Coordinate Transformation
+
+The volumio-text-adaptive theme uses a different approach - coordinate transformation instead of pre-rotated images.
+
+### How Text Theme Works
+
+Instead of loading different image sequences, the text theme:
+1. Reads rotate= parameter (not plymouth=)
+2. Transforms text sprite coordinates at runtime
+3. No pre-rendered images needed
+
+### Text Theme Rotation
+
+For text theme, use the rotate= parameter directly:
+```
+/boot/cmdline.txt:
+rotate=270 (for portrait left)
+```
+
+No plymouth= parameter needed for text theme.
+
+### Coordinate Transformation Math
+
+The text theme transform_coordinates function applies:
+
+For rotate=90:
+```
+new_x = screen_height - old_y
+new_y = old_x
+```
+
+For rotate=180:
+```
+new_x = screen_width - old_x
+new_y = screen_height - old_y
+```
+
+For rotate=270:
+```
+new_x = old_y
+new_y = screen_width - old_x
+```
+
+This ensures text always appears upright relative to the physical display orientation.
+
+## Runtime Detection
+
+Both themes support runtime detection that eliminates manual script edits.
+
+### With Runtime Detection Installed
+
+Changing rotation workflow:
+1. Edit cmdline.txt (change plymouth= or rotate= values)
+2. Reboot
+3. Done - automatic patching at boot
+
+### Without Runtime Detection
+
+Changing rotation workflow:
+1. Edit cmdline.txt
+2. Manually edit theme script
+3. Change rotation variable value
+4. Rebuild initramfs
+5. Reboot
+
+Runtime detection installation: See volumio-plymouth-adaptive/runtime-detection/RUNTIME-DETECTION-INSTALL.md
 
 ## Dimension Swapping
 
