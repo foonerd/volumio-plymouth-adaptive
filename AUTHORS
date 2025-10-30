@@ -1,0 +1,25 @@
+# Volumio Adaptive Themes Contributors
+
+This project was created to solve display rotation issues on Raspberry Pi systems running Volumio.
+
+## Project Lead
+
+[Your name or handle here]
+
+## Contributors
+
+Contributions are welcome. Contributors will be added here as pull requests are merged.
+
+## Based On
+
+This project builds upon the volumio-player Plymouth theme distributed with Volumio.
+
+## Acknowledgments
+
+- Volumio project and community
+- Plymouth development team
+- Raspberry Pi Foundation
+
+## Contributing
+
+If you contribute to this project, please add your name or handle to this file in your pull request.

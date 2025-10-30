@@ -1,0 +1,231 @@
+VOLUMIO-ADAPTIVE PLYMOUTH THEME
+Command Line Configuration Examples
+====================================
+
+VOLUMIO CONFIGURATION FILES
+----------------------------
+
+/boot/config.txt         - DO NOT MODIFY (build process managed)
+/boot/volumioconfig.txt  - DO NOT MODIFY (Volumio defaults)
+/boot/userconfig.txt     - USER EDITABLE (hardware: dtoverlay, hdmi_group, hdmi_mode)
+/boot/cmdline.txt        - USER EDITABLE (kernel parameters: video=, rotate=, plymouth=)
+
+CRITICAL: All display rotation and Plymouth parameters go in /boot/cmdline.txt
+
+CMDLINE.TXT STRUCTURE
+---------------------
+
+Must be SINGLE LINE with space-separated parameters.
+No line breaks allowed.
+
+VANILLA VOLUMIO CMDLINE.TXT
+----------------------------
+
+As shipped with Volumio (no display rotation):
+
+splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no
+
+Key parameters:
+- splash (show Plymouth)
+- quiet (suppress console messages)
+- nodebug (no kernel debug)
+
+EXAMPLE 1: LANDSCAPE HDMI MONITOR (1920x1080)
+----------------------------------------------
+
+No rotation needed. Add plymouth=0 (or omit, defaults to 0):
+
+splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no plymouth=0
+
+Added:
+- plymouth=0
+
+EXAMPLE 2: PORTRAIT DISPLAY - WAVESHARE 11.9" (320x1480)
+---------------------------------------------------------
+
+Physical orientation: Portrait (cable at bottom, screen rotated 270 CCW)
+
+splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90
+
+Added:
+- video=HDMI-A-1:320x1480M@60,rotate=270 (console rotation)
+- plymouth=90 (Plymouth image selection)
+
+EXAMPLE 3: PORTRAIT DISPLAY - OFFICIAL PI TOUCHSCREEN (800x480)
+----------------------------------------------------------------
+
+Physical orientation: Portrait (cable at top, screen rotated 90 CCW)
+
+splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no video=DSI-1:800x480M@60,rotate=90 plymouth=270
+
+Added:
+- video=DSI-1:800x480M@60,rotate=90
+- plymouth=270
+
+EXAMPLE 4: UPSIDE-DOWN DISPLAY (1920x1080)
+-------------------------------------------
+
+Physical orientation: Upside-down (rotated 180)
+
+splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no video=HDMI-A-1:1920x1080M@60,rotate=180 plymouth=180
+
+Added:
+- video=HDMI-A-1:1920x1080M@60,rotate=180
+- plymouth=180
+
+EXAMPLE 5: WITH FRAMEBUFFER CONSOLE MAPPING
+--------------------------------------------
+
+Some displays require fbcon parameter (vendor-specific):
+
+splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no video=HDMI-A-1:320x1480M@60,rotate=270 fbcon=map:10 plymouth=90
+
+Added:
+- video=HDMI-A-1:320x1480M@60,rotate=270
+- fbcon=map:10 (framebuffer console mapping)
+- plymouth=90
+
+EXAMPLE 6: DEBUGGING CONFIGURATION
+-----------------------------------
+
+For troubleshooting Plymouth issues:
+
+splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 noquiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 debug plymouth.debug use_kmsg=no video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90
+
+Changes from vanilla:
+- quiet -> noquiet (show console messages)
+- nodebug -> debug (enable kernel debug for dmesg)
+- ADD plymouth.debug (creates /var/log/plymouth-debug.log)
+
+ROTATION FORMULA
+----------------
+
+plymouth_rotation = (360 - kernel_rotation) % 360
+
+Examples:
+- rotate=0   -> plymouth=0
+- rotate=90  -> plymouth=270
+- rotate=180 -> plymouth=180
+- rotate=270 -> plymouth=90
+
+PARAMETER DETAILS
+-----------------
+
+video=INTERFACE:WIDTHxHEIGHTM@REFRESH[,options]
+  INTERFACE: HDMI-A-1, HDMI-A-2, DSI-1, etc.
+  WIDTH x HEIGHT: Native resolution
+  M: Monitor timing mode
+  @REFRESH: Usually 60
+  options: rotate=XXX, etc.
+
+rotate=XXX
+  Kernel/console framebuffer rotation (CCW)
+  Values: 0, 90, 180, 270
+  Does NOT affect Plymouth directly
+
+plymouth=XXX
+  Plymouth theme image selection
+  Values: 0, 90, 180, 270
+  Independent of rotate=
+  Tells theme which pre-rotated images to use
+
+fbcon=map:10
+  Framebuffer console mapping
+  Vendor/hardware specific
+  Optional, use if needed for your display
+
+TOGGLE PARAMETERS
+-----------------
+
+Change between values (not additions):
+
+debug / nodebug
+  nodebug (default) - no kernel debug
+  debug - enable kernel debug messages (view with dmesg)
+
+splash / nosplash
+  splash (default) - show Plymouth
+  nosplash - disable Plymouth
+
+quiet / noquiet
+  quiet (default) - suppress console messages
+  noquiet - show all console messages
+
+DEBUG-ONLY PARAMETER
+--------------------
+
+plymouth.debug
+  NOT a toggle - ADD for debugging
+  Creates /var/log/plymouth-debug.log
+  REMOVE after debugging complete
+
+USERCONFIG.TXT (HARDWARE CONFIGURATION)
+---------------------------------------
+
+/boot/userconfig.txt contains hardware-level settings:
+
+dtoverlay=vc4-kms-v3d
+hdmi_group=2
+hdmi_mode=87
+hdmi_cvt=320 1480 60 6 0 0 0
+
+NOTE: video= and rotate= do NOT go here - they go in cmdline.txt
+
+TESTING CHANGES
+---------------
+
+After editing cmdline.txt:
+
+sudo reboot
+
+To test without rebooting (preview only):
+
+sudo plymouthd --debug
+sudo plymouth show-splash
+# Wait 10 seconds
+sudo plymouth quit
+
+TROUBLESHOOTING
+---------------
+
+If boot splash shows incorrectly:
+
+1. Verify plymouth= value in /boot/cmdline.txt
+2. Verify video= and rotate= values in /boot/cmdline.txt
+3. Use formula to calculate correct plymouth= value
+4. Try different plymouth= values: 0, 90, 180, 270
+5. Enable debug mode (see EXAMPLE 6)
+
+BACKUP BEFORE EDITING
+----------------------
+
+Always backup before editing:
+
+sudo cp /boot/cmdline.txt /boot/cmdline.txt.backup
+
+To restore:
+
+sudo cp /boot/cmdline.txt.backup /boot/cmdline.txt
+sudo reboot
+
+VERIFICATION
+------------
+
+After editing, verify cmdline.txt is single line:
+
+wc -l /boot/cmdline.txt
+
+Should output: 1
+
+If multiple lines, re-edit to single line.
+
+IMPORTANT NOTES
+---------------
+
+1. cmdline.txt MUST be single line
+2. Parameters are space-separated
+3. video= and rotate= affect console, NOT Plymouth directly
+4. plymouth= tells theme which images to use
+5. Both parameters needed for correct rotated display
+6. Toggle parameters: change value, don't add both
+7. plymouth.debug: ADD for debugging, REMOVE after
