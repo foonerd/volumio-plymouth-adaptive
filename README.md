@@ -5,7 +5,7 @@ Dynamic boot splash and UI themes for Volumio that adapt to display rotation wit
 ## Project Status
 
 - **volumio-plymouth-adaptive**: Complete and tested (v1.0)
-- **volumio-text-adaptive**: Planned
+- **volumio-text-adaptive**: Complete and tested (v1.0)
 
 ## Overview
 
@@ -35,43 +35,79 @@ See [volumio-plymouth-adaptive/README.md](volumio-plymouth-adaptive/README.md) f
 
 ### volumio-text-adaptive
 
-Adaptive text-based UI theme for Volumio.
+A rotation-adaptive text-based Plymouth boot theme for Volumio.
 
-**Status**: Planned, awaiting specifications
+**Problem Solved**: Provides a lightweight fallback boot splash when full graphical themes cannot be used or when minimal resource usage is required. Adapts to display rotation without pre-rendered image sequences.
+
+**Solution**: Runtime coordinate transformation based on kernel rotation parameter. Dynamically repositions text elements for proper display at any orientation.
+
+**Features**:
+- Dynamic rotation detection from kernel command line
+- Runtime coordinate transformation for 0, 90, 180, 270 degrees
+- Text-only rendering (no image sequences)
+- Minimal storage footprint
+- Screen size adaptation (font sizing, text truncation)
+- Single-line system message display
+- Password prompt support
+- No generation script needed
+
+**Use Cases**:
+- Fallback/test environments
+- Minimal installations
+- Low storage situations
+- Quick deployment scenarios
+
+**Status**: Complete, tested on Raspberry Pi 5 with Waveshare 11.9" LCD
+
+See [volumio-text-adaptive/README.md](volumio-text-adaptive/README.md) for details.
 
 ## Volumio Configuration Hierarchy
 
 Volumio uses a specific configuration file hierarchy. Understanding this is critical for proper installation:
 
-1. `/boot/cmdline.txt` - Kernel command line parameters
-   - `plymouth=` parameter goes here
-   
-2. `/boot/config.txt` - Build process managed (DO NOT MODIFY)
+1. `/boot/config.txt` - Build process managed (DO NOT MODIFY)
    - System managed, changes may be overwritten
    
-3. `/boot/volumioconfig.txt` - Volumio player defaults (DO NOT MODIFY)
+2. `/boot/volumioconfig.txt` - Volumio player defaults (DO NOT MODIFY)
    - System managed defaults
    
-4. `/boot/userconfig.txt` - User configuration (MODIFY THIS)
-   - `rotate=` and `video=` parameters go here
+3. `/boot/userconfig.txt` - Hardware configuration (MODIFY THIS)
+   - dtoverlay parameters
+   - hdmi_group, hdmi_mode settings
    - User changes are preserved across updates
+   
+4. `/boot/cmdline.txt` - Kernel command line (MODIFY THIS)
+   - `video=` parameter (display mode and rotation)
+   - `rotate=` parameter (console rotation)
+   - `plymouth=` parameter (boot splash image selection)
+   - `fbcon=` parameter (console font rotation)
+   - Must be single line, space-separated
 
 **Example Configuration**:
 
 `/boot/userconfig.txt`:
 ```
-video=HDMI-A-1:320x1480M@60,rotate=270
+dtoverlay=vc4-kms-v3d
+hdmi_group=2
+hdmi_mode=87
+hdmi_cvt=320 1480 60 6 0 0 0
 ```
 
 `/boot/cmdline.txt`:
 ```
-console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait plymouth=90 quiet splash
+splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90
 ```
+
+**Key Points**:
+- `video=`, `rotate=`, `plymouth=`, and `fbcon=` ALL go in `/boot/cmdline.txt`
+- `/boot/userconfig.txt` is for hardware config only (dtoverlay, hdmi settings)
+- `/boot/cmdline.txt` must be single line with no line breaks
 
 ## Installation
 
 See individual theme directories for installation instructions:
 - [volumio-plymouth-adaptive/INSTALLATION.md](volumio-plymouth-adaptive/INSTALLATION.md)
+- [volumio-text-adaptive/INSTALLATION.md](volumio-text-adaptive/INSTALLATION.md)
 
 ## Requirements
 
@@ -97,13 +133,18 @@ See [AUTHORS](AUTHORS)
 ### Version 1.0 (October 30, 2025)
 - Initial release
 - volumio-plymouth-adaptive complete
-- Dynamic rotation detection from kernel command line
-- Pre-rotated image support for 0, 90, 180, 270 degrees
-- Complete documentation suite
-- Installation and quick reference guides
+  - Dynamic rotation detection from kernel command line
+  - Pre-rotated image support for 0, 90, 180, 270 degrees
+  - Complete documentation suite
+  - Installation and quick reference guides
+- volumio-text-adaptive complete
+  - Rotation-adaptive text-based Plymouth theme
+  - Runtime coordinate transformation
+  - Minimal storage footprint
+  - Fallback/test theme for constrained environments
+  - Complete documentation suite
 
 ### Future Updates
 - This section will track additions and changes
-- volumio-text-adaptive development
-- Additional features and improvements
 - Bug fixes and optimizations
+- Additional features and improvements

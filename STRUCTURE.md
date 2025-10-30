@@ -46,8 +46,11 @@ volumio-plymouth-adaptive/
 
 ```
 volumio-text-adaptive/
-  README.md                    - Theme overview (placeholder)
-  [Future files when specifications provided]
+  README.md                    - Theme overview and features
+  INSTALLATION.md              - Step-by-step installation guide
+  TECHNICAL.md                 - Technical implementation details
+  volumio-text.script          - Main theme script (6.3 KB)
+  volumio-text.plymouth        - Theme configuration (250 bytes)
 ```
 
 ## docs/
@@ -119,8 +122,10 @@ Standard GitHub features:
 
 ## Future Additions
 
+Version 1.0 includes both core themes (plymouth-adaptive and text-adaptive).
+
 As the project grows:
-- Additional theme directories follow same pattern
+- Additional theme variants may follow same pattern
 - Shared utilities go in root-level utils/ directory
 - Architecture documentation goes in docs/
 - More specific examples go in theme-specific examples/ directories
