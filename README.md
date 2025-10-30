@@ -36,6 +36,8 @@ See [volumio-plymouth-adaptive/README.md](volumio-plymouth-adaptive/README.md) f
 
 ### volumio-text-adaptive
 
+**INTEGRATION NOTE**: When integrated into volumio-os, this theme becomes `volumio-text` and uses framebuffer rotation (`video=` or `fbcon=` parameters) instead of theme-level coordinate transformation. See "Integration Changes" section below for details.
+
 A rotation-adaptive text-based Plymouth boot theme for Volumio.
 
 **Problem Solved**: Provides a lightweight fallback boot splash when full graphical themes cannot be used or when minimal resource usage is required. Adapts to display rotation without pre-rendered image sequences.
@@ -79,10 +81,9 @@ Volumio uses a specific configuration file hierarchy. Understanding this is crit
    - User changes are preserved across updates
    
 4. `/boot/cmdline.txt` - Kernel command line (MODIFY THIS)
-   - `video=` parameter (display mode and rotation)
-   - `rotate=` parameter (console rotation)
-   - `plymouth=` parameter (boot splash image selection)
-   - `fbcon=` parameter (console font rotation)
+   - `video=` parameter (display mode and fbcon rotation)
+   - `plymouth=` parameter (volumio-adaptive theme rotation)
+   - `fbcon=` parameter (alternative console font rotation)
    - Must be single line, space-separated
 
 **Example Configuration**:
@@ -100,14 +101,67 @@ hdmi_cvt=320 1480 60 6 0 0 0
 splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90
 ```
 
+**Parameter Usage**:
+- `plymouth=90` - For volumio-adaptive theme (selects pre-rotated image sequence)
+- `video=HDMI-A-1:...,rotate=270` - For volumio-text rotation via framebuffer
+- Both parameters can coexist - each theme uses its appropriate method
+
 **Key Points**:
-- `video=`, `rotate=`, `plymouth=`, and `fbcon=` ALL go in `/boot/cmdline.txt`
+- `video=`, `plymouth=`, and `fbcon=` ALL go in `/boot/cmdline.txt`
 - `/boot/userconfig.txt` is for hardware config only (dtoverlay, hdmi settings)
 - cmdline.txt must be single line with no line breaks
+- volumio-adaptive uses `plymouth=` parameter
+- volumio-text uses `video=...,rotate=` or `fbcon=rotate:` parameter
 
 **Important**: cmdline.txt location varies by OS:
 - Volumio 3.x/4.x: `/boot/cmdline.txt`
 - Raspberry Pi OS Bookworm: `/boot/firmware/cmdline.txt`
+
+## Integration Changes
+
+When integrated into volumio-os, the themes undergo specific adaptations due to Plymouth Script API limitations:
+
+### volumio-adaptive Integration
+
+- **Theme name**: `volumio-adaptive` (new theme added to volumio-os)
+- **Rotation method**: Theme-level using `plymouth=` parameter
+- **Implementation**: Pre-rotated image sequences (sequence0/, sequence90/, sequence180/, sequence270/)
+- **Runtime detection**: Patches theme script via 00-plymouth-rotation and plymouth-rotation.sh
+- **Status**: No changes from development version
+
+### volumio-text Integration
+
+- **Theme name**: `volumio-text` (replaces existing volumio-text in volumio-os)
+- **Rotation method**: System-level using framebuffer rotation
+- **Implementation**: Simple theme relying on `video=...,rotate=` or `fbcon=rotate:` parameters
+- **Runtime detection**: None needed - framebuffer handles rotation
+- **Changes from development version**:
+  - Removed coordinate transformation logic
+  - Removed `rotate=` parameter support
+  - Simplified from 227 lines to 174 lines
+  - Uses fbcon rotation instead of theme-level rotation
+
+### Why The Change?
+
+Plymouth Script API does not support rotating text images at runtime:
+- No `Image.Rotate()` function exists
+- `Image.Text()` creates horizontal text only
+- Cannot rotate dynamic text at runtime
+
+**Evidence**: volumio-player-ccw theme disables text messages with comment "plymouth is unable to rotate properly in init"
+
+**Solution**:
+- volumio-adaptive: Pre-rotated images work (static content)
+- volumio-text: Framebuffer rotation required (dynamic text)
+
+### Parameter Summary
+
+| Theme | Parameter | Purpose |
+|-------|-----------|---------|
+| volumio-adaptive | `plymouth=0\|90\|180\|270` | Select pre-rotated image sequence |
+| volumio-text | `video=...,rotate=90` or `fbcon=rotate:1` | Rotate framebuffer |
+
+**Note**: `plymouth=` and framebuffer rotation parameters are NOT interchangeable. Each theme uses its appropriate method.
 
 ## Installation
 

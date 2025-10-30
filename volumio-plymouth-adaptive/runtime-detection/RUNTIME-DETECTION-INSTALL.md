@@ -4,8 +4,12 @@ Runtime Detection Installation Guide
 OVERVIEW
 --------
 
-These files enable Plymouth theme to adapt to rotation changes without
-requiring initramfs rebuild. This is critical for Volumio OTA updates.
+These files enable volumio-adaptive Plymouth theme to adapt to rotation changes
+without requiring initramfs rebuild. This is critical for Volumio OTA updates.
+
+**IMPORTANT**: Runtime detection is for volumio-adaptive theme only.
+- volumio-adaptive uses plymouth= parameter and requires runtime patching
+- volumio-text uses framebuffer rotation (video= or fbcon=) and does NOT need runtime detection
 
 COMPONENTS
 ----------
@@ -13,15 +17,17 @@ COMPONENTS
 1. 00-plymouth-rotation
    - Init-premount script
    - Runs in early initramfs before Plymouth starts
-   - Patches script at boot time
+   - Patches volumio-adaptive.script at boot time
+   - Does NOT patch volumio-text (uses framebuffer rotation)
 
 2. plymouth-rotation.service
    - Systemd service unit
-   - Patches installed script for shutdown/reboot
+   - Patches volumio-adaptive for shutdown/reboot
    
 3. plymouth-rotation.sh
    - Detection script called by service
-   - Reads rotation from /proc/cmdline
+   - Reads plymouth= parameter from /proc/cmdline
+   - Patches volumio-adaptive theme only
 
 INSTALLATION STEPS
 ------------------
@@ -96,19 +102,25 @@ Both directions wrong:
 TECHNICAL DETAILS
 -----------------
 
-Why two components needed:
+Why volumio-adaptive needs two components:
 
 Boot phase:
 - Plymouth runs from initramfs
-- Must patch script IN initramfs
+- Must patch volumio-adaptive.script IN initramfs
 - init-premount runs before Plymouth
 
 Shutdown/reboot phase:
 - Plymouth runs from installed system
-- Must patch script in /usr/share
+- Must patch volumio-adaptive.script in /usr/share
 - systemd service patches at boot for later shutdown
 
-Both patches use same detection logic from /proc/cmdline.
+Both patches use same detection logic from /proc/cmdline plymouth= parameter.
+
+Why volumio-text doesn't need runtime detection:
+
+Plymouth Script API cannot rotate text images. volumio-text theme uses
+framebuffer rotation (video= or fbcon= parameters) which is handled by
+the kernel automatically. No theme script patching needed.
 
 UNINSTALLATION
 --------------
@@ -142,6 +154,7 @@ Architecture:
 LIMITATIONS
 -----------
 
+- Only works with volumio-adaptive theme (volumio-text uses framebuffer rotation)
 - Requires reboot for rotation changes to take effect
 - Does not detect rotation changes during runtime
 - Community accepted: rotation changes naturally require reboot

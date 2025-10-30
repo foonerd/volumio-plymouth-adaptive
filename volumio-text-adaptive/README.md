@@ -1,6 +1,11 @@
 Volumio Text Adaptive Plymouth Theme
 =====================================
 
+**INTEGRATION NOTE**: In volumio-os, this theme becomes `volumio-text` and uses 
+framebuffer rotation (`video=` or `fbcon=` parameters) instead of the `rotate=` 
+parameter documented below. This documentation reflects the original development 
+approach. See "Integration Version" section for volumio-os usage.
+
 OVERVIEW
 --------
 
@@ -46,8 +51,45 @@ FEATURES
    - Systemd service patches for shutdown/reboot
    - One-time setup, zero maintenance
 
+INTEGRATION VERSION (volumio-os)
+---------------------------------
+
+When integrated into volumio-os, this theme uses a different approach:
+
+**Theme Name**: volumio-text (replaces existing volumio-text in volumio-os)
+
+**Rotation Method**: System-level framebuffer rotation
+- Uses video= or fbcon= parameters (NOT rotate= parameter)
+- No coordinate transformation in theme script
+- Simple 174-line script
+- Framebuffer handles all rotation
+
+**Why The Change**: Plymouth Script API cannot rotate text images
+- No Image.Rotate() function exists
+- Image.Text() creates horizontal text only
+- Dynamic text requires framebuffer rotation
+
+**Parameters**:
+- video=HDMI-A-1:1920x1080,rotate=90
+- OR fbcon=rotate:1 (0=0°, 1=90°, 2=180°, 3=270°)
+
+**No Runtime Detection Needed**: Framebuffer rotation is automatic
+
+**Example cmdline.txt**:
+```
+... video=HDMI-A-1:1920x1080,rotate=90 ...
+```
+
+DEVELOPMENT VERSION (this repository)
+--------------------------------------
+
+The sections below document the original development approach using 
+coordinate transformation and the rotate= parameter.
+
 INSTALLATION
 ------------
+
+**Development Version Installation**:
 
 1. Copy theme to Plymouth themes directory:
 
@@ -65,8 +107,11 @@ INSTALLATION
 
    Add rotate=90, rotate=180, or rotate=270 to single line
 
-ROTATION CONFIGURATION
-----------------------
+ROTATION CONFIGURATION (Development Version)
+---------------------------------------------
+
+**Note**: This section documents the development version's rotate= parameter.
+For volumio-os integration, see "Integration Version" section above.
 
 Theme uses rotate= parameter for coordinate transformation.
 

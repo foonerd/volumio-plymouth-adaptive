@@ -1,5 +1,11 @@
 # Display Rotation Mathematics
 
+**IMPORTANT NOTE**: This document describes coordinate transformation math used in the development version of volumio-text-adaptive. In the volumio-os integration (volumio-text), coordinate transformation was removed in favor of framebuffer rotation because Plymouth Script API cannot rotate text images. This math is preserved for historical reference and understanding of the original approach.
+
+**Current Implementation**:
+- **volumio-adaptive**: Uses pre-rotated image sequences (this rotation math applies)
+- **volumio-text**: Uses framebuffer rotation (this rotation math does NOT apply)
+
 Understanding how kernel rotation and Plymouth rotation relate.
 
 ## The Problem
@@ -194,10 +200,17 @@ Both themes support runtime detection that eliminates manual script edits.
 
 ### With Runtime Detection Installed
 
-Changing rotation workflow:
-1. Edit cmdline.txt (change plymouth= or rotate= values)
+**Note**: Runtime detection is for volumio-adaptive theme only.
+
+Changing rotation workflow for volumio-adaptive:
+1. Edit cmdline.txt (change plymouth= value)
 2. Reboot
 3. Done - automatic patching at boot
+
+For volumio-text:
+1. Edit cmdline.txt (change video=...,rotate= or fbcon=rotate: value)
+2. Reboot
+3. Done - framebuffer rotation is automatic (no patching needed)
 
 ### Without Runtime Detection
 
@@ -267,6 +280,64 @@ Examples:
 - K=270: P = (360-270) % 360 = 90
 - K=180: P = (360-180) % 360 = 180
 - K=0:   P = (360-0) % 360 = 0
+
+## Why Coordinate Transformation Was Removed (Integration Version)
+
+### The Problem with Text Rotation
+
+Plymouth Script API has a critical limitation: **No text rotation capability**.
+
+- No `Image.Rotate()` function exists
+- `Image.Text()` creates horizontal text only
+- Dynamic text cannot be rotated at runtime
+- Only pre-rendered static images can be rotated
+
+### Evidence
+
+The volumio-player-ccw theme (line 122-124) disables text messages with this comment:
+```
+# Disabled as plymouth is unable to rotate properly in init.
+```
+
+This confirms Plymouth cannot rotate text images.
+
+### Two Solutions for Two Themes
+
+**volumio-adaptive** (Image-based):
+- Uses pre-rotated image sequences
+- Rotation math applies to selecting correct sequence directory
+- Works because images are pre-rendered and rotated offline
+- Uses `plymouth=` parameter
+
+**volumio-text** (Text-based):
+- Cannot use coordinate transformation (text stays horizontal)
+- Uses framebuffer rotation instead
+- Kernel rotates entire framebuffer automatically
+- Uses `video=...,rotate=` or `fbcon=rotate:` parameters
+- No rotation math needed in theme script
+
+### Development vs Integration
+
+**Development Version** (this document):
+- Attempted coordinate transformation
+- 227-line script with transform_coordinates() function
+- Used `rotate=` parameter
+- Failed: text appeared sideways because images weren't rotated
+
+**Integration Version** (volumio-os):
+- Removed coordinate transformation
+- 174-line simplified script
+- Uses framebuffer rotation
+- Works: framebuffer rotation handles everything
+
+### Conclusion
+
+This rotation mathematics is useful for:
+- Understanding volumio-adaptive image sequence selection
+- Historical reference for coordinate transformation attempt
+- NOT applicable to volumio-text integration version
+
+For volumio-text in volumio-os: Use framebuffer rotation. No math needed.
 
 ## References
 

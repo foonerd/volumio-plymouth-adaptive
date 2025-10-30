@@ -37,12 +37,45 @@ Volumio uses a specific hierarchy for boot configuration:
 ### /boot/cmdline.txt
 **USER EDITABLE**
 - Kernel command line parameters
-- CRITICAL: video= and rotate= parameters MUST go here
-- plymouth= parameter goes here
+- CRITICAL: video= parameters MUST go here
+- plymouth= parameter (volumio-adaptive theme) goes here
+- fbcon=rotate: parameter (volumio-text theme alternative) goes here
 - One line only, space-separated parameters
 - Location varies by OS:
   - Volumio 3.x/4.x: /boot/cmdline.txt
   - Pi OS Bookworm: /boot/firmware/cmdline.txt
+
+## Parameter Usage by Theme
+
+**IMPORTANT**: Different themes use different rotation methods.
+
+### volumio-adaptive (Image-based theme)
+Uses `plymouth=` parameter for theme-level rotation:
+- `plymouth=0` - Normal orientation
+- `plymouth=90` - 90 degrees clockwise
+- `plymouth=180` - 180 degrees
+- `plymouth=270` - 270 degrees clockwise
+
+Example cmdline.txt:
+```
+... video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90 quiet splash
+```
+
+### volumio-text (Text-based theme)
+Uses framebuffer rotation (`video=` or `fbcon=` parameters):
+- `video=HDMI-A-1:1920x1080,rotate=90` - 90 degrees
+- `video=HDMI-A-1:1920x1080,rotate=180` - 180 degrees
+- `video=HDMI-A-1:1920x1080,rotate=270` - 270 degrees
+
+OR:
+- `fbcon=rotate:1` - 90 degrees (0=0°, 1=90°, 2=180°, 3=270°)
+
+Example cmdline.txt:
+```
+... video=HDMI-A-1:1920x1080,rotate=90 quiet splash
+```
+
+**Note**: plymouth= parameter does NOT work with volumio-text theme.
 
 ## Display Detection
 
@@ -141,10 +174,19 @@ sudo update-initramfs -u
 
 ### After Runtime Detection is Installed
 
+**Note**: Runtime detection only patches volumio-adaptive theme. volumio-text uses framebuffer rotation (no patching needed).
+
 To change display rotation:
-1. Edit /boot/cmdline.txt (change plymouth= or rotate= values)
+
+**For volumio-adaptive**:
+1. Edit /boot/cmdline.txt (change plymouth= value)
 2. Reboot
 3. Done - no manual edits, no rebuilds
+
+**For volumio-text**:
+1. Edit /boot/cmdline.txt (change video=...,rotate= or fbcon=rotate: value)
+2. Reboot
+3. Done - framebuffer rotation is automatic
 
 ### Without Runtime Detection
 
@@ -235,7 +277,7 @@ plymouth=0
 | 2     | 180 degrees |
 | 3     | 270 degrees |
 
-### plymouth= (This Theme)
+### plymouth= (volumio-adaptive theme only)
 
 | Value | Effect |
 |-------|--------|
@@ -243,6 +285,8 @@ plymouth=0
 | 90    | 90 degrees clockwise |
 | 180   | 180 degrees |
 | 270   | 270 degrees clockwise |
+
+**Note**: This parameter only works with volumio-adaptive theme. volumio-text uses framebuffer rotation (video=...,rotate= or fbcon=rotate:) instead.
 
 ## Testing Configuration
 
@@ -301,6 +345,39 @@ Problem: Both console and Plymouth wrong orientation
 Solution: Fix kernel rotation first
 - Check video= rotate= in /boot/userconfig.txt
 - Or display_rotate= if using legacy method
+
+### volumio-text Theme Not Rotating
+
+Problem: Using volumio-text theme but rotation doesn't work
+
+Cause: Wrong parameter usage
+- volumio-text does NOT use plymouth= parameter
+- plymouth= parameter only works with volumio-adaptive theme
+
+Solution: Use framebuffer rotation for volumio-text
+- Method 1: Add to cmdline.txt: `video=HDMI-A-1:1920x1080,rotate=90`
+- Method 2: Add to cmdline.txt: `fbcon=rotate:1` (0=0°, 1=90°, 2=180°, 3=270°)
+- Reboot
+
+Check current rotation:
+```bash
+cat /sys/class/graphics/fbcon/rotate
+```
+
+### plymouth= Parameter Not Working
+
+Problem: Added plymouth= parameter but no effect
+
+Possible causes:
+1. Using volumio-text theme (plymouth= only works with volumio-adaptive)
+2. Runtime detection not installed (manual script edit needed)
+3. Syntax error in cmdline.txt
+
+Solutions:
+- Verify active theme: `sudo plymouth-set-default-theme`
+- If using volumio-text, use video=...,rotate= or fbcon=rotate: instead
+- If using volumio-adaptive without runtime detection, edit script manually
+- Check cmdline.txt syntax (must be single line, space-separated)
 
 ### Display Not Detected
 
@@ -438,10 +515,11 @@ ls -l /dev/fb*
 
 ## Example Configurations
 
-### Configuration 1: Landscape Desktop
+### Configuration 1: Landscape Desktop (volumio-adaptive)
 
 Display: 1920x1080 HDMI monitor
 Orientation: Normal
+Theme: volumio-adaptive
 
 /boot/userconfig.txt:
 ```
@@ -453,10 +531,11 @@ Orientation: Normal
 console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait plymouth=0 quiet splash
 ```
 
-### Configuration 2: Portrait Touchscreen
+### Configuration 2: Portrait Touchscreen (volumio-adaptive)
 
 Display: 800x480 official touchscreen
 Orientation: Portrait (cable at top)
+Theme: volumio-adaptive
 
 /boot/userconfig.txt:
 ```
@@ -468,10 +547,11 @@ Orientation: Portrait (cable at top)
 console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait video=DSI-1:800x480M@60,rotate=270 plymouth=90 quiet splash
 ```
 
-### Configuration 3: Tall Portrait Display
+### Configuration 3: Tall Portrait Display (volumio-adaptive)
 
 Display: Waveshare 11.9" (320x1480)
 Orientation: Portrait (cable at bottom)
+Theme: volumio-adaptive
 
 /boot/userconfig.txt:
 ```
@@ -482,6 +562,29 @@ Orientation: Portrait (cable at bottom)
 ```
 console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90 quiet splash
 ```
+
+### Configuration 4: Portrait Display with volumio-text Theme
+
+Display: 1920x1080 HDMI monitor
+Orientation: Portrait (90 degrees)
+Theme: volumio-text
+
+/boot/userconfig.txt:
+```
+# Hardware only
+```
+
+/boot/cmdline.txt:
+```
+console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait video=HDMI-A-1:1920x1080,rotate=90 quiet splash
+```
+
+**Alternative using fbcon parameter**:
+```
+console=serial0,115200 console=tty1 root=PARTUUID=12345678-02 rootfstype=ext4 fsck.repair=yes rootwait fbcon=rotate:1 quiet splash
+```
+
+**Note**: volumio-text does NOT use plymouth= parameter. It relies on framebuffer rotation.
 
 ## Safety Tips
 

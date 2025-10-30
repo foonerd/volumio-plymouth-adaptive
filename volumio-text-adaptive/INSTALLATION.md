@@ -1,6 +1,11 @@
 Installation Guide - Volumio Text Adaptive Theme
 =================================================
 
+**INTEGRATION NOTE**: In volumio-os, this theme becomes `volumio-text` and uses
+framebuffer rotation (`video=` or `fbcon=` parameters) instead of the `rotate=`
+parameter documented below. See "Integration Installation" section for volumio-os
+usage. This guide documents the original development version installation.
+
 REQUIREMENTS
 ------------
 
@@ -11,6 +16,52 @@ REQUIREMENTS
 Note: cmdline.txt location varies by OS:
 - Volumio 3.x/4.x: /boot/cmdline.txt
 - Raspberry Pi OS Bookworm: /boot/firmware/cmdline.txt
+
+INTEGRATION INSTALLATION (volumio-os)
+--------------------------------------
+
+For volumio-os integration, the theme is simplified and uses framebuffer rotation:
+
+**Theme Name**: volumio-text (replaces existing volumio-text)
+
+**Installation Steps**:
+
+1. Copy theme script:
+   sudo cp volumio-text.script /usr/share/plymouth/themes/volumio-text/
+
+2. Set as default theme:
+   sudo plymouth-set-default-theme volumio-text
+
+3. Update initramfs:
+   sudo update-initramfs -u
+
+4. Configure framebuffer rotation in /boot/cmdline.txt:
+   
+   **Method 1** - video parameter:
+   video=HDMI-A-1:1920x1080,rotate=90
+   
+   **Method 2** - fbcon parameter:
+   fbcon=rotate:1
+   (0=0°, 1=90°, 2=180°, 3=270°)
+
+5. Reboot:
+   sudo reboot
+
+**Example cmdline.txt**:
+```
+splash plymouth.ignore-serial-consoles quiet console=serial0,115200 console=tty1 rootwait logo.nologo vt.global_cursor_default=0 video=HDMI-A-1:1920x1080,rotate=90
+```
+
+**No Runtime Detection Needed**: Framebuffer rotation is automatic.
+
+**Why Different**: Plymouth Script API cannot rotate text images. Framebuffer
+rotation rotates the entire display, allowing text to render correctly.
+
+DEVELOPMENT VERSION INSTALLATION
+---------------------------------
+
+The sections below document the original development version installation
+using coordinate transformation and the rotate= parameter.
 
 INSTALLATION STEPS
 ------------------
@@ -102,8 +153,12 @@ INSTALLATION STEPS
    
    Theme will display during boot.
 
-ROTATION CONFIGURATION
-----------------------
+ROTATION CONFIGURATION (Development Version)
+---------------------------------------------
+
+**Note**: This section documents the development version's rotate= parameter.
+For volumio-os integration, use video= or fbcon= parameters (see Integration
+Installation section above).
 
 If your display is physically rotated, configure rotation in cmdline.txt:
 
@@ -111,10 +166,15 @@ Location (varies by OS):
 - Volumio: /boot/cmdline.txt
 - Pi OS Bookworm: /boot/firmware/cmdline.txt
 
-For text theme:
-- Only rotate= parameter needed
-- Theme automatically transforms coordinates
+**Development version**:
+- Uses rotate= parameter
+- Theme transforms coordinates
 - Values: rotate=0 (default), rotate=90, rotate=180, or rotate=270
+
+**Integration version (volumio-os)**:
+- Uses video=...,rotate= or fbcon=rotate: parameters
+- Framebuffer handles rotation
+- No coordinate transformation in theme
 
 Example: rotate=270 (for portrait left orientation)
 
@@ -268,12 +328,15 @@ COMMON CMDLINE.TXT EXAMPLES
 **Note:** Actual cmdline.txt varies per installation (UUIDs differ).
 These examples show typical Volumio format with relevant parameters.
 
+**Development version** uses rotate= parameter (standalone).
+**Integration version (volumio-os)** uses video=...,rotate= or fbcon=rotate: parameters.
+
 **Standard (no rotation):**
 ```
 splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no
 ```
 
-**With 90-degree rotation** (add at end):
+**With 90-degree rotation - Development version** (add rotate= at end):
 ```
 splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no rotate=90
 ```
@@ -288,7 +351,7 @@ console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait quiet splash lo
 splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no plymouth.debug
 ```
 
-**With specific display configuration:**
+**With specific display configuration - Integration version (volumio-os):**
 ```
 splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no video=HDMI-A-1:800x480M@60,rotate=270
 ```

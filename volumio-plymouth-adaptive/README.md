@@ -6,8 +6,31 @@ Universal boot splash theme with adaptive rotation support for Volumio
 
 Volumio-adaptive is a Plymouth boot splash theme that solves the display rotation problem for Raspberry Pi systems with rotated displays. Unlike traditional Plymouth themes that require initramfs rebuilds when changing displays, volumio-adaptive reads a `plymouth=` parameter from the kernel command line and dynamically loads pre-rotated images.
 
+**This is the volumio-adaptive theme** which uses pre-rotated image sequences and the `plymouth=` parameter. For the companion volumio-text theme (which uses dynamic text rendering with framebuffer rotation), see the volumio-text-adaptive documentation.
+
+## Dual-Theme System
+
+This repository provides two complementary themes with different rotation approaches:
+
+### volumio-adaptive (This Theme)
+- **Rotation method**: Pre-rotated image sequences
+- **Parameter**: plymouth=0 or 90 or 180 or 270
+- **Content**: Static images (Volumio logo animation)
+- **Runtime detection**: Supported (recommended)
+- **Parameter location**: /boot/cmdline.txt
+
+### volumio-text (Companion Theme)
+- **Rotation method**: Framebuffer rotation
+- **Parameter**: video=...,rotate=N or fbcon=rotate:N
+- **Content**: Dynamic text rendering
+- **Runtime detection**: Not applicable
+- **Parameter location**: /boot/cmdline.txt
+
+**CRITICAL**: The plymouth= parameter only works with volumio-adaptive theme. For volumio-text, use video=...,rotate= or fbcon=rotate: parameters instead.
+
 ## Key Features
 
+### volumio-adaptive specific features:
 - ONE theme works across ALL display orientations
 - NO initramfs rebuild needed when changing displays (with runtime detection)
 - Supports 0, 90, 180, and 270 degree rotations
@@ -15,8 +38,12 @@ Volumio-adaptive is a Plymouth boot splash theme that solves the display rotatio
 - Automatic micro/progress sequence selection based on screen size
 - Preserves all volumio-player features (messages, debug overlay)
 - Self-contained and portable
+- Pre-rotated image sequences for each rotation
+- plymouth= parameter for rotation control
 
 ## Runtime Detection (Recommended)
+
+**NOTE**: Runtime detection patches only the volumio-adaptive theme. It does not apply to volumio-text theme, which uses system-level framebuffer rotation.
 
 The theme includes an optional runtime detection system that eliminates the need for initramfs rebuilds when changing display rotation:
 
@@ -26,7 +53,7 @@ The theme includes an optional runtime detection system that eliminates the need
 - **Zero maintenance** after setup - rotation changes only require editing cmdline.txt and rebooting
 
 With runtime detection installed:
-1. Edit rotation in /boot/cmdline.txt
+1. Edit rotation in /boot/cmdline.txt (update plymouth= parameter)
 2. Reboot
 3. Done - no theme reinstall or initramfs rebuild
 
@@ -42,7 +69,9 @@ Standard Plymouth themes fail on Raspberry Pi with rotated displays because:
 3. Fixed-orientation images display incorrectly
 4. Each display change requires new theme + initramfs rebuild
 
-**Solution**: Pre-rotate images for all orientations, let script select at runtime.
+**Solution (volumio-adaptive)**: Pre-rotate images for all orientations, let script select at runtime using plymouth= parameter.
+
+**Alternative Solution (volumio-text)**: Use framebuffer rotation to rotate the entire display before Plymouth renders, eliminating the need for pre-rotated content.
 
 ## Package Contents
 
@@ -111,6 +140,8 @@ Example complete line:
 splash plymouth.ignore-serial-consoles ... quiet ... nodebug use_kmsg=no video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90
 ```
 
+**Important**: The plymouth= parameter is specific to volumio-adaptive theme. If using volumio-text theme instead, omit plymouth= and rely on video=...,rotate= or fbcon=rotate: for rotation.
+
 ### 7. Reboot
 
 ```bash
@@ -140,6 +171,18 @@ Use these `plymouth=` values based on your kernel `rotate=` setting:
 | rotate=270     | 90        | Portrait (90 CW)    |
 
 **Formula**: `plymouth_rotation = (360 - kernel_rotation) % 360`
+
+**Note**: This formula applies only to volumio-adaptive theme. volumio-text theme uses framebuffer rotation and does not need the plymouth= parameter.
+
+## Parameter Usage By Theme
+
+| Theme | Required Parameter | Purpose |
+|-------|-------------------|---------|
+| volumio-adaptive | plymouth=0 or 90 or 180 or 270 | Select pre-rotated image sequence |
+| volumio-text | video=...,rotate=N | Rotate framebuffer for text |
+| volumio-text | fbcon=rotate:N | Rotate framebuffer for text (alternative) |
+
+**Do not mix parameters**: plymouth= only works with volumio-adaptive. video=...,rotate= and fbcon=rotate: are used by volumio-text.
 
 ## Changing Displays
 
@@ -185,13 +228,15 @@ After installation, the theme directory contains:
 
 Each sequence directory contains 97 image files.
 
+**Note**: volumio-text theme does not use image sequences - it generates text dynamically.
+
 ## Technical Details
 
 ### How It Works
 
 **With runtime detection** (recommended):
 1. Init-premount script reads plymouth= from /proc/cmdline before Plymouth loads
-2. Script patches plymouth_rotation value in theme script
+2. Script patches plymouth_rotation value in volumio-adaptive.script
 3. Plymouth loads pre-patched script with correct rotation
 4. Script builds image path: `sequenceXX/`
 5. All Image() calls load from selected directory
@@ -202,6 +247,8 @@ Each sequence directory contains 97 image files.
 1. Theme script has hardcoded plymouth_rotation value
 2. Must manually edit and rebuild initramfs for each rotation change
 3. Rest of process same as above
+
+**Runtime detection scope**: Only applies to volumio-adaptive theme. volumio-text uses framebuffer rotation which is handled by the kernel, not the theme script.
 
 See `docs/TECHNICAL.md` for detailed information on Plymouth API limitations and runtime detection implementation.
 
@@ -252,9 +299,17 @@ sudo reboot
 
 ### Wrong orientation
 
-- Verify `plymouth=` matches your display
-- Use formula: `plymouth = (360 - rotate) % 360`
+- Verify active theme matches parameter type
+- For volumio-adaptive: verify `plymouth=` matches your display
+- For volumio-text: verify `video=...,rotate=` or `fbcon=rotate:` configured
+- Use formula: `plymouth = (360 - rotate) % 360` (volumio-adaptive only)
 - Try different values: 0, 90, 180, 270
+
+### Parameter not working
+
+- Verify active theme: `sudo plymouth-set-default-theme`
+- If using volumio-text, plymouth= parameter has no effect - use video=...,rotate= or fbcon=rotate: instead
+- If using volumio-adaptive without plymouth= parameter, images won't rotate - add plymouth= parameter
 
 ### Missing images
 
@@ -262,7 +317,7 @@ sudo reboot
 - Each directory should have 97 files
 - Re-run `generate-rotated-sequences.sh` if needed
 
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed troubleshooting.
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed troubleshooting including theme-specific issues.
 
 ## Maintenance
 
@@ -277,6 +332,22 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed troubleshoot
 
 ```bash
 sudo plymouth-set-default-theme -R volumio-player
+```
+
+### Switching between themes
+
+To switch to volumio-text:
+```bash
+sudo plymouth-set-default-theme -R volumio-text
+# Edit cmdline.txt: remove plymouth=, ensure video=...,rotate= or fbcon=rotate: present
+sudo reboot
+```
+
+To switch back to volumio-adaptive:
+```bash
+sudo plymouth-set-default-theme -R volumio-adaptive
+# Edit cmdline.txt: add plymouth= parameter
+sudo reboot
 ```
 
 ## Requirements
@@ -295,6 +366,8 @@ sudo plymouth-set-default-theme -R volumio-player
 - Without runtime detection: each rotation change requires manual script edit and initramfs rebuild
 - Image generation requires disk space (4x source images)
 - Custom rotations require manual image creation
+- plymouth= parameter only applies to volumio-adaptive theme
+- Runtime detection only patches volumio-adaptive theme
 
 ## Credits
 
@@ -318,7 +391,8 @@ For issues or questions:
 3. Review [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for commands
 4. Check [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues
 5. Enable debug overlay to diagnose issues
-6. Report to Volumio development team with debug log
+6. Verify correct theme is active for your parameter type
+7. Report to Volumio development team with debug log
 
 ## Project Status
 
@@ -326,6 +400,7 @@ For issues or questions:
 - **Version**: 1.0
 - **Last updated**: October 2025
 - **Tested on**: Raspberry Pi 5, Raspberry Pi OS Bookworm
+- **Dual-theme system**: volumio-adaptive + volumio-text
 
 ## Future Enhancements
 
@@ -333,7 +408,8 @@ Potential improvements:
 - Support for arbitrary rotation angles
 - Integration with Volumio settings UI
 - Automatic image generation during theme installation
-- Text-based theme variant (coordinate transformation instead of pre-rendered images)
+- Unified configuration interface for both themes
+- Auto-detection of optimal theme for display type
 
 ## Additional Resources
 
@@ -348,4 +424,4 @@ Thanks to:
 - Freedesktop.org for Plymouth
 - Volumio team for the audio distribution
 - Community members for testing and feedback
-- 
+- Contributors to both volumio-adaptive and volumio-text themes

@@ -6,6 +6,28 @@ Complete installation and testing instructions
 
 This package provides a universal Plymouth boot splash theme that adapts to different display rotations. With the optional runtime detection system (recommended), rotation changes require only editing cmdline.txt and rebooting - no initramfs rebuilds needed. The theme uses pre-rendered image sequences for each rotation (0, 90, 180, 270 degrees).
 
+**THEME NOTE**: This is the volumio-adaptive theme which uses the `plymouth=` parameter. For the companion volumio-text theme, which uses different rotation parameters (`video=...,rotate=` or `fbcon=rotate:`), see the volumio-text-adaptive documentation.
+
+## Dual-Theme System
+
+The repository contains two themes with different rotation approaches:
+
+### volumio-adaptive (This Theme)
+- Uses pre-rotated image sequences
+- Rotation controlled by: `plymouth=` parameter
+- Runtime detection: Optional (recommended)
+- Parameter location: /boot/cmdline.txt
+- Parameter values: 0, 90, 180, 270
+
+### volumio-text (Companion Theme)
+- Uses dynamic text rendering
+- Rotation controlled by: framebuffer rotation
+- Runtime detection: Not applicable
+- Parameter location: /boot/cmdline.txt
+- Parameter format: `video=...,rotate=N` or `fbcon=rotate:N`
+
+**CRITICAL**: Do not mix parameters between themes. Use `plymouth=` only with volumio-adaptive, and use `video=...,rotate=` or `fbcon=rotate:` only with volumio-text.
+
 ## Package Contents
 
 1. `volumio-adaptive.script` - Main Plymouth script with rotation support
@@ -96,6 +118,8 @@ This command:
 
 Runtime detection eliminates the need for manual script edits and initramfs rebuilds when changing display rotation. This is a one-time setup.
 
+**IMPORTANT**: Runtime detection patches only the volumio-adaptive theme. It does not apply to volumio-text, which uses framebuffer rotation.
+
 **See [runtime-detection/RUNTIME-DETECTION-INSTALL.md](runtime-detection/RUNTIME-DETECTION-INSTALL.md) for detailed instructions.**
 
 Quick summary:
@@ -135,7 +159,9 @@ sudo nano /boot/cmdline.txt
 
 **IMPORTANT**: cmdline.txt must be a single line. Do not add line breaks.
 
-### Adding Display and Plymouth Parameters
+### Adding Display and Plymouth Parameters (volumio-adaptive)
+
+**NOTE**: These parameters are for volumio-adaptive theme only. If using volumio-text, see its documentation for different parameter syntax.
 
 To the existing line in cmdline.txt, add:
 
@@ -172,14 +198,26 @@ video=HDMI-A-1:1920x1080M@60,rotate=180 plymouth=180
   - Affects text console and graphics
   - Does NOT affect Plymouth directly
 
-- **`plymouth=XXX`** - Plymouth theme image selection
-  - Tells theme which pre-rotated images to use
+- **`plymouth=XXX`** - Plymouth theme image selection (volumio-adaptive only)
+  - Tells volumio-adaptive theme which pre-rotated images to use
   - INDEPENDENT of rotate= parameter
   - Formula: plymouth = (360 - rotate) % 360
+  - **Only works with volumio-adaptive theme**
+  - **Do not use with volumio-text theme**
 
 - **`fbcon=map:10`** (optional) - Framebuffer console mapping
   - Vendor/hardware specific parameter
   - Include if needed for your display
+
+### Parameter Usage By Theme
+
+| Theme | Rotation Parameter | Purpose |
+|-------|-------------------|---------|
+| volumio-adaptive | plymouth=0 or 90 or 180 or 270 | Select pre-rotated image sequence |
+| volumio-text | video=...,rotate=90 | Rotate framebuffer for text |
+| volumio-text | fbcon=rotate:1 | Rotate framebuffer for text (alternative) |
+
+**CRITICAL**: Using plymouth= parameter with volumio-text has no effect. Using video=...,rotate= or fbcon=rotate: with volumio-adaptive only rotates the console, not the Plymouth images.
 
 ### Example: Waveshare 11.9" LCD (320x1480 native portrait)
 
@@ -188,14 +226,14 @@ video=HDMI-A-1:1920x1080M@60,rotate=180 plymouth=180
 splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no
 ```
 
-**Modified for portrait display** (add parameters at end):
+**Modified for portrait display with volumio-adaptive** (add parameters at end):
 ```
 splash plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 quiet console=serial0,115200 console=tty1 imgpart=UUID=cfdb2ece-53a1-41e1-976e-083b99a3d665 imgfile=/volumio_current.sqsh bootpart=UUID=3533-4CB0 datapart=UUID=f76792a9-df7b-4cdd-8b61-c2c89d5cbb6e uuidconfig=cmdline.txt pcie_aspm=off pci=pcie_bus_safe rootwait bootdelay=7 logo.nologo vt.global_cursor_default=0 net.ifnames=0 snd-bcm2835.enable_compat_alsa= snd_bcm2835.enable_hdmi=1 snd_bcm2835.enable_headphones=1 loglevel=0 nodebug use_kmsg=no video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90
 ```
 
 **Key changes**:
 - Added: `video=HDMI-A-1:320x1480M@60,rotate=270` (console rotates 270 CCW)
-- Added: `plymouth=90` (Plymouth uses 90 CW rotated images)
+- Added: `plymouth=90` (volumio-adaptive uses 90 CW rotated images)
 - Result: Correctly oriented display
 
 ### Toggle Parameters (Not Additions)
@@ -304,11 +342,13 @@ lsinitramfs /boot/initrd.img-$(uname -r) | grep plymouth | grep volumio-adaptive
 
 Should show files from volumio-adaptive theme.
 
-**Check 3: Verify plymouth= parameter**
+**Check 3: Verify plymouth= parameter (volumio-adaptive only)**
 
 ```bash
 cat /boot/cmdline.txt | grep plymouth=
 ```
+
+Should show plymouth=0, plymouth=90, plymouth=180, or plymouth=270.
 
 **Check 4: Check Plymouth service status**
 
@@ -322,6 +362,95 @@ sudo systemctl status plymouth-quit.service
 Verify `plymouth=` value matches your display configuration:
 - If console text is correct but Plymouth is wrong, adjust `plymouth=` value
 - Remember: `plymouth_rotation = (360 - kernel_rotation) % 360`
+- Verify active theme is volumio-adaptive (not volumio-text)
+
+### Parameter not working
+
+**Problem**: Added plymouth= parameter but no effect on rotation
+
+**Possible causes**:
+1. Wrong theme active (using volumio-text instead of volumio-adaptive)
+2. Parameter syntax error in cmdline.txt
+3. Initramfs not rebuilt after parameter change
+
+**Solutions**:
+1. Verify active theme:
+   ```bash
+   sudo plymouth-set-default-theme
+   ```
+   Should show: volumio-adaptive
+
+2. If using volumio-text theme:
+   - plymouth= parameter has no effect on volumio-text
+   - Use video=...,rotate= or fbcon=rotate: instead
+   - See volumio-text documentation
+
+3. Check parameter syntax:
+   ```bash
+   cat /boot/cmdline.txt | grep plymouth
+   ```
+   Should be: plymouth=0 or plymouth=90 or plymouth=180 or plymouth=270
+
+4. If runtime detection NOT installed:
+   - Manually edit volumio-adaptive.script
+   - Rebuild initramfs: sudo plymouth-set-default-theme -R volumio-adaptive
+
+### Runtime detection not working
+
+**Problem**: Changed plymouth= parameter but rotation unchanged after reboot
+
+**Possible causes**:
+1. Runtime detection not properly installed
+2. Service not enabled
+3. Script execution blocked
+
+**Solutions**:
+1. Verify runtime detection files:
+   ```bash
+   ls -la /etc/initramfs-tools/scripts/init-premount/00-plymouth-rotation
+   ls -la /usr/local/bin/plymouth-rotation.sh
+   ls -la /etc/systemd/system/plymouth-rotation.service
+   ```
+
+2. Check service enabled:
+   ```bash
+   sudo systemctl is-enabled plymouth-rotation.service
+   ```
+   Should show: enabled
+
+3. Check service logs:
+   ```bash
+   sudo journalctl -u plymouth-rotation.service
+   ```
+
+4. Rebuild initramfs:
+   ```bash
+   sudo update-initramfs -u
+   ```
+
+### Wrong parameter for theme type
+
+**Problem**: Using video=...,rotate= with volumio-adaptive
+
+**Symptom**: Console rotates correctly, Plymouth images do not rotate
+
+**Solution**: Add plymouth= parameter to cmdline.txt:
+```
+video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90
+```
+
+**Problem**: Using plymouth= with volumio-text
+
+**Symptom**: Plymouth parameter ignored, no rotation effect
+
+**Solution**: Remove plymouth= and ensure framebuffer rotation configured:
+```
+video=HDMI-A-1:320x1480M@60,rotate=270
+```
+or
+```
+fbcon=rotate:3
+```
 
 ### Only seeing micro sequence on large display
 
@@ -386,27 +515,35 @@ sudo plymouth-set-default-theme -R volumio-player
 4. Script swaps width/height logic for portrait orientations (90, 270)
 5. Micro sequence activates when `(screen_width <= 640) && (screen_height <= 640)`
 6. Animation timing: micro advances every 20 ticks, progress every 3 ticks
+7. plymouth= parameter only applies to volumio-adaptive theme
+8. Runtime detection patches only volumio-adaptive theme script
 
 ## Configuration Parameter Priority
 
-The `plymouth=` parameter is INDEPENDENT of `video=` `rotate=` parameter.
+The `plymouth=` parameter is INDEPENDENT of `video=` `rotate=` parameter and only works with volumio-adaptive theme.
 
-**Correct usage**:
-
-`/boot/userconfig.txt`:
-```
-video=HDMI-A-1:320x1480M@60,rotate=270
-```
+**Correct usage (volumio-adaptive)**:
 
 `/boot/cmdline.txt`:
 ```
-plymouth=90
+video=HDMI-A-1:320x1480M@60,rotate=270 plymouth=90
 ```
+
+Both parameters required for correct rotation:
+- video=...,rotate=270 (rotates console)
+- plymouth=90 (rotates Plymouth images)
 
 **Do NOT use**:
 ```
 video=HDMI-A-1:320x1480M@60,rotate=270
 # Missing plymouth= in cmdline.txt, will default to 0
+```
+
+**Do NOT mix with volumio-text**:
+```
+# If using volumio-text, do NOT use plymouth= parameter
+video=HDMI-A-1:320x1480M@60,rotate=270
+# plymouth= has no effect on volumio-text
 ```
 
 ## Performance Considerations
@@ -432,7 +569,9 @@ For issues or questions:
 1. Check `/tmp/plymouth-debug.log` for errors
 2. Verify all files and permissions
 3. Test with debug overlay enabled
-4. Report to Volumio development team with debug log
+4. Verify correct theme active (volumio-adaptive vs volumio-text)
+5. Check parameter usage matches theme type
+6. Report to Volumio development team with debug log
 
 ## Version History
 
@@ -440,5 +579,5 @@ For issues or questions:
 - Four rotation presets (0, 90, 180, 270)
 - Micro and progress sequence support
 - Debug overlay
-- No initramfs rebuild needed for rotation changes
-- 
+- Runtime detection system
+- Dual-theme architecture (volumio-adaptive + volumio-text)

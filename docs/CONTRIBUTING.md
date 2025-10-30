@@ -2,6 +2,24 @@
 
 Thank you for your interest in contributing to this project.
 
+## Important Context
+
+This repository contains two themes with different rotation approaches:
+
+**volumio-adaptive** (Image-based):
+- Uses `plymouth=` parameter for theme-level rotation
+- Pre-rotated image sequences
+- Runtime detection patches theme script
+- Suitable for animated graphical themes
+
+**volumio-text** (Text-based):
+- Uses framebuffer rotation (`video=` or `fbcon=` parameters)
+- No runtime detection needed
+- Simplified script (no coordinate transformation)
+- Plymouth Script API cannot rotate text images
+
+When contributing, be aware of which theme your changes apply to and use the appropriate rotation method.
+
 ## Code of Conduct
 
 Be respectful, constructive, and professional in all interactions.
@@ -57,9 +75,21 @@ Use the issue template provided in the repository. Include:
 All contributions must be tested on actual hardware:
 - Minimum: Raspberry Pi 3 or newer
 - Test all rotation angles (0, 90, 180, 270)
-- Verify smooth animation
+- Verify smooth animation (for image-based themes)
 - Check memory usage reasonable
-- Confirm no initramfs rebuild needed
+- Confirm rotation works correctly
+
+**For volumio-adaptive contributions**:
+- Test with `plymouth=` parameter
+- Verify runtime detection works (if installed)
+- Confirm no initramfs rebuild needed for rotation changes
+- Test both boot and shutdown
+
+**For volumio-text contributions**:
+- Test with `video=...,rotate=` or `fbcon=rotate:` parameters
+- Verify text appears correctly oriented
+- Confirm framebuffer rotation is working
+- No runtime detection testing needed
 
 ### Documentation Updates
 
@@ -112,6 +142,8 @@ Place new files in appropriate directories:
 - Text themes: volumio-text-adaptive/
 - Shared documentation: docs/
 - GitHub templates: .github/
+
+**Integration Note**: In volumio-os, volumio-text-adaptive becomes `volumio-text` and uses framebuffer rotation. When contributing to volumio-os integration, be aware of this difference.
 
 ### Licensing
 

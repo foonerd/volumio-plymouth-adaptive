@@ -24,12 +24,14 @@ Volumio uses a specific file hierarchy for boot configuration:
 - Does NOT contain `video=` or `rotate=` parameters
 
 **`/boot/cmdline.txt`** - User editable kernel parameters (single line)
-- Contains: `video=`, `rotate=`, `plymouth=`, `fbcon=`
+- Contains: `video=`, `plymouth=`, `fbcon=`
 - All kernel command line parameters
 - Must be single line, space-separated
 - Where display rotation is configured
+- `plymouth=` parameter is for volumio-adaptive theme
+- `video=...,rotate=` or `fbcon=rotate:` is for volumio-text theme
 
-**Critical**: Display rotation (`video=`, `rotate=`) and Plymouth parameters (`plymouth=`) go in **cmdline.txt**, not userconfig.txt.
+**Critical**: Display rotation and Plymouth parameters go in **cmdline.txt**, not userconfig.txt. Different themes use different parameters.
 
 ### Plymouth API Limitations (Critical Discovery)
 
@@ -48,26 +50,62 @@ Volumio uses a specific file hierarchy for boot configuration:
 2. ReadFile("/proc/cmdline") - returned NULL
 3. Plymouth.GetParameter("plymouth") - returned NULL
 
+### Plymouth Text Rotation Limitation (Critical Discovery)
+
+**Problem**: Plymouth Script API does not support rotating text images.
+
+- No `Image.Rotate()` function exists in Plymouth Script API
+- `Image.Text()` creates horizontal text only
+- Dynamic text cannot be rotated at runtime
+- Only pre-rendered static images can be rotated
+
+**Evidence**: volumio-player-ccw theme (line 122-124) disables text messages with comment: "plymouth is unable to rotate properly in init"
+
+**Impact**: This limitation directly affects theme design:
+- Image-based themes (volumio-adaptive): Use pre-rotated image sequences (works)
+- Text-based themes (volumio-text): Must rely on framebuffer rotation (different approach)
+
+### Dual-Theme Rotation Approaches
+
+**volumio-adaptive** (Image-based):
+- Uses `plymouth=` parameter for theme-level rotation
+- Pre-rotated image sequences for all orientations
+- Runtime detection patches `plymouth_rotation` variable
+- Script selects correct image sequence directory
+- Works because images are pre-rotated static content
+
+**volumio-text** (Text-based):
+- Uses `video=...,rotate=` or `fbcon=rotate:` parameters
+- System-level framebuffer rotation
+- No theme script patching needed
+- Framebuffer handles rotation automatically
+- Required because Plymouth cannot rotate text images
+
+**Summary**: Different themes, different methods. Both work for their specific use cases.
+
 ### Runtime Detection Solution
 
-**Implementation**: Two-phase patching system that works OUTSIDE Plymouth:
+**Implementation**: Two-phase patching system for volumio-adaptive theme.
+
+**Note**: Runtime detection is ONLY for volumio-adaptive theme. volumio-text uses framebuffer rotation and does not require runtime patching.
 
 **Phase 1 - Boot (Init-Premount Script)**:
 1. Script runs in initramfs BEFORE Plymouth loads
 2. Reads /proc/cmdline (available in early boot, before Plymouth restrictions)
-3. Uses sed to patch plymouth_rotation value in script file
-4. Plymouth loads already-patched script with correct rotation
+3. Detects `plymouth=` parameter
+4. Uses sed to patch `plymouth_rotation` value in volumio-adaptive.script
+5. Plymouth loads already-patched script with correct rotation
 
 **Phase 2 - Shutdown (Systemd Service)**:
 1. Service runs at system startup
-2. Patches installed script in /usr/share/plymouth/themes/
+2. Patches volumio-adaptive.script in /usr/share/plymouth/themes/
 3. Ensures shutdown/reboot use correct rotation
 
-**Key insight**: /proc/cmdline IS available in initramfs init-premount phase, but NOT available once Plymouth script executes. Solution: Patch the script before Plymouth loads it.
+**Key insight**: /proc/cmdline IS available in initramfs init-premount phase, but NOT available once Plymouth script executes. Solution: Patch volumio-adaptive.script before Plymouth loads it.
 
 **Files**:
-- `00-plymouth-rotation` - Init-premount script (boot phase)
-- `plymouth-rotation.sh` - Systemd script (shutdown phase)
+- `00-plymouth-rotation` - Init-premount script (patches volumio-adaptive only)
+- `plymouth-rotation.sh` - Systemd script (patches volumio-adaptive only)
 - `plymouth-rotation.service` - Service unit
 
 **Advantages**:
@@ -688,9 +726,11 @@ Plymouth script has no built-in parameter extraction. Must search character-by-c
 
 ## Future Enhancement Possibilities
 
+**Note**: These enhancements apply to volumio-adaptive theme only. volumio-text uses framebuffer rotation and does not use these mechanisms.
+
 ### Auto-detection
 
-Read both `plymouth=` and `rotate=` parameters, apply formula automatically:
+For volumio-adaptive: Read both `plymouth=` and kernel rotation, apply formula automatically:
 
 ```
 rotate_value = ParseParameter("rotate");

@@ -1,14 +1,23 @@
 Technical Documentation - Rotation Adaptation
 =============================================
 
-COORDINATE TRANSFORMATION SYSTEM
----------------------------------
+**INTEGRATION NOTE**: In volumio-os, this theme becomes `volumio-text` and uses
+framebuffer rotation (`video=` or `fbcon=` parameters) instead of coordinate
+transformation. This documentation reflects the original development approach.
+See "Integration Version (volumio-os)" section below for deployed usage.
+
+COORDINATE TRANSFORMATION SYSTEM (DEVELOPMENT VERSION)
+------------------------------------------------------
 
 The text theme implements automatic coordinate transformation
 to adapt layout to display rotation without pre-rendered content.
 
-ROTATION DETECTION
-------------------
+**NOTE**: This coordinate transformation approach is used only in the 
+development version. The volumio-os integration uses framebuffer rotation 
+instead due to Plymouth API limitations with text rotation.
+
+ROTATION DETECTION (DEVELOPMENT VERSION)
+----------------------------------------
 
 Rotation value read from /proc/cmdline at theme initialization.
 
@@ -37,6 +46,9 @@ if (cmdline_contents) {
 }
 ```
 
+**INTEGRATION NOTE**: This rotate= detection is not used in volumio-os.
+See "Integration Version" section below for the deployed approach.
+
 COORDINATE SYSTEMS
 ------------------
 
@@ -50,8 +62,8 @@ Logical Coordinates:
 - May be swapped for portrait rotations
 - Example: 480x800 when rotated 90/270 degrees
 
-TRANSFORMATION FORMULAS
------------------------
+TRANSFORMATION FORMULAS (DEVELOPMENT VERSION)
+---------------------------------------------
 
 Rotation 0 degrees (Standard):
   physical_x = logical_x
@@ -77,8 +89,8 @@ Rotation 270 degrees (Portrait Left):
   layout_width = Window.GetHeight()
   layout_height = Window.GetWidth()
 
-IMPLEMENTATION FUNCTIONS
-------------------------
+IMPLEMENTATION FUNCTIONS (DEVELOPMENT VERSION)
+----------------------------------------------
 
 transform_coordinates(x, y):
   Input: Logical coordinates (layout space)
@@ -224,14 +236,20 @@ Image Theme Rotation Adaptation:
 - Images pre-rendered at each rotation
 - Formula: plymouth = (360 - rotate) % 360
 
-Text Theme Rotation Adaptation:
+Text Theme Rotation Adaptation (Development):
 - Transforms coordinates dynamically
 - No pre-rendered content needed
 - Single script handles all rotations
 - Runtime coordinate calculation
 
-PASSWORD PROMPT TRANSFORMATION
--------------------------------
+Text Theme Rotation Adaptation (Integration):
+- Uses framebuffer rotation
+- video=...,rotate= or fbcon=rotate: parameters
+- System handles rotation, not theme
+- Simple theme with no coordinate transformation
+
+PASSWORD PROMPT TRANSFORMATION (DEVELOPMENT VERSION)
+----------------------------------------------------
 
 Password prompts also transformed:
 
@@ -258,7 +276,7 @@ Higher Z values appear in front.
 PERFORMANCE CONSIDERATIONS
 --------------------------
 
-Coordinate transformation overhead:
+Coordinate transformation overhead (Development Version):
 - Minimal (simple arithmetic)
 - Executed only during element positioning
 - Not per-frame (text is static)
@@ -286,10 +304,105 @@ LIMITATIONS
    - Minor centering variations possible
    - Generally imperceptible
 
-DEBUGGING ROTATION
-------------------
+INTEGRATION VERSION (VOLUMIO-OS)
+--------------------------------
 
-To debug rotation issues:
+### Why Coordinate Transformation Was Removed
+
+Plymouth Script API does not support rotating text images:
+- No Image.Rotate() function exists
+- Image.Text() creates horizontal text only
+- Cannot rotate dynamic text at runtime
+- Only pre-rendered static images can be rotated
+
+**Evidence**: The volumio-player-ccw theme disables text messages with this 
+comment: "plymouth is unable to rotate properly in init"
+
+**Result**: Coordinate transformation alone cannot create readable rotated 
+text displays. Text positioned at transformed coordinates remains horizontal 
+in physical space.
+
+### Framebuffer Rotation Solution
+
+In volumio-os, volumio-text uses system-level framebuffer rotation:
+
+Parameter Format:
+- video=...,rotate=90
+- video=...,rotate=180  
+- video=...,rotate=270
+- fbcon=rotate:1 (90 degrees)
+- fbcon=rotate:2 (180 degrees)
+- fbcon=rotate:3 (270 degrees)
+
+How It Works:
+1. Kernel rotates framebuffer before Plymouth starts
+2. Plymouth writes text to already-rotated buffer
+3. Text appears correctly rotated on physical display
+4. Theme code remains simple (no transformation needed)
+
+### Implementation Difference
+
+Development Version (volumio-text-adaptive):
+- Script: 227 lines with coordinate transformation
+- Detects rotate= parameter in /proc/cmdline
+- Transforms coordinates for each element
+- Text still horizontal (limitation)
+
+Integration Version (volumio-text):
+- Script: 174 lines without transformation
+- Relies on video= or fbcon= parameters
+- No coordinate transformation code
+- System handles rotation completely
+
+### Parameter Usage By Theme
+
+| Theme | Parameter | Purpose |
+|-------|-----------|---------|
+| volumio-adaptive | plymouth=0 or 90 or 180 or 270 | Pre-rotated images |
+| volumio-text | video=...,rotate=90 | Framebuffer rotation |
+| volumio-text | fbcon=rotate:1 | Framebuffer rotation |
+
+**CRITICAL**: Do not use plymouth= parameter with volumio-text theme.
+It expects system-level rotation via video= or fbcon= parameters.
+
+### Advantages of Framebuffer Rotation
+
+Technical Benefits:
+- Actually rotates text (not just coordinates)
+- Works with Plymouth API limitations
+- Simpler theme code
+- More reliable across displays
+
+Functional Benefits:
+- Text remains readable at all rotations
+- No Plymouth API workarounds needed
+- Compatible with existing system rotation
+- Standard Linux framebuffer approach
+
+### Migration Notes
+
+When moving from development to integration:
+
+Removed Code:
+- transform_coordinates() function (40 lines)
+- get_layout_dimensions() function (15 lines)
+- Rotation detection from /proc/cmdline (20 lines)
+- All coordinate transformation calls (15 locations)
+
+Added Requirements:
+- video= or fbcon= parameters in /boot/cmdline.txt
+- System-level rotation configuration
+- Display-specific rotation values
+
+Updated Documentation:
+- Installation instructions use video=/fbcon= parameters
+- Troubleshooting covers parameter configuration
+- Examples show system-level rotation setup
+
+DEBUGGING ROTATION (DEVELOPMENT VERSION)
+----------------------------------------
+
+To debug rotation issues in development version:
 
 1. Add debug output to script:
    ```
@@ -312,6 +425,32 @@ To debug rotation issues:
    - Verify centering maintained
    - Check text visibility
 
+DEBUGGING ROTATION (INTEGRATION VERSION)
+----------------------------------------
+
+To debug rotation issues in volumio-text:
+
+1. Verify framebuffer rotation parameters:
+   ```
+   cat /boot/cmdline.txt | grep -E 'rotate|fbcon'
+   ```
+
+2. Check active rotation:
+   ```
+   cat /sys/class/graphics/fbcon/rotate
+   ```
+
+3. Test rotation values:
+   - rotate=90 or fbcon=rotate:1
+   - rotate=180 or fbcon=rotate:2
+   - rotate=270 or fbcon=rotate:3
+
+4. Verify theme active:
+   ```
+   sudo plymouth-set-default-theme --list
+   sudo plymouth-set-default-theme
+   ```
+
 COORDINATE SYSTEM REFERENCE
 ----------------------------
 
@@ -319,13 +458,19 @@ Screen origin: Top-left corner (0, 0)
 X-axis: Increases right
 Y-axis: Increases down
 
-After transformation:
+After transformation (Development):
 - Origin remains top-left of physical display
 - Logical (0,0) maps to different physical positions
 - Center calculations in logical space ensure proper layout
 
-FORMULA DERIVATION
-------------------
+After framebuffer rotation (Integration):
+- Origin remains top-left
+- Entire framebuffer rotated by kernel
+- Theme uses standard coordinates
+- System handles all rotation
+
+FORMULA DERIVATION (DEVELOPMENT VERSION)
+----------------------------------------
 
 90-degree rotation formula derivation:
 
@@ -339,10 +484,13 @@ New position: (H-y, x)
 Generalized for all rotations using matrix multiplication,
 simplified to conditional formulas for performance.
 
+**NOTE**: These formulas are not used in volumio-os integration.
+Framebuffer rotation eliminates need for coordinate transformation.
+
 TESTING METHODOLOGY
 -------------------
 
-Test matrix for rotation validation:
+Test matrix for rotation validation (Development Version):
 
 Display: 800x480
 Test positions:
@@ -357,6 +505,14 @@ Verify centering:
 - Transform to physical
 - Measure distance from physical center
 - Should match for all rotations
+
+Test matrix for rotation validation (Integration Version):
+
+1. Configure framebuffer rotation
+2. Reboot system
+3. Verify boot splash rotated correctly
+4. Check text readability
+5. Test all rotation values (0, 90, 180, 270)
 
 FUTURE ENHANCEMENTS
 -------------------
@@ -373,11 +529,29 @@ Currently out of scope due to Plymouth limitations.
 REFERENCE IMPLEMENTATION
 ------------------------
 
-See volumio-text.script for complete implementation.
+Development Version:
+- See volumio-text-adaptive/volumio-text.script
+- 227 lines with coordinate transformation
+- Key functions: transform_coordinates(), get_layout_dimensions()
 
-Key functions:
-- transform_coordinates(): Core transformation
-- get_layout_dimensions(): Dimension handling
-- message_callback(): Dynamic positioning
+Integration Version (volumio-os):
+- See volumio-text theme in volumio-os
+- 174 lines without transformation
+- Relies on framebuffer rotation
+- Simpler implementation
 
-All positioning uses these functions for consistency.
+SUMMARY OF APPROACHES
+---------------------
+
+| Aspect | Development | Integration |
+|--------|-------------|-------------|
+| Theme name | volumio-text-adaptive | volumio-text |
+| Script lines | 227 | 174 |
+| Rotation method | Coordinate transform | Framebuffer |
+| Parameter | rotate=N | video=...,rotate=N |
+| Text rotation | Not supported | Fully supported |
+| Complexity | High | Low |
+| Limitation | Horizontal text only | None |
+
+**RECOMMENDATION**
+Use integration version (volumio-text) with framebuffer rotation for reliable rotated text display. Development version demonstrates Plymouth API limitations.

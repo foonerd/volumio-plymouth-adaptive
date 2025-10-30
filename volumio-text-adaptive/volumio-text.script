@@ -1,4 +1,4 @@
-#  volumio-text.script - Text mode Plymouth theme with rotation support
+#  volumio-text.script - Text mode Plymouth theme
 #
 #  Copyright (C) 2025 Volumio Srl
 #  
@@ -24,122 +24,77 @@
 #    Freedesktop.org:
 #      https://www.freedesktop.org/wiki/Software/Plymouth/Scripts/
 #
-
-# --------------------------------- ROTATION DETECTION ------------------------
-
-# Rotation value patched at runtime by init-premount script
-# Default value (0 = landscape, no rotation)
-# Runtime detection will replace this line with actual rotate= value
-# Note: Text theme uses 'rotate=' not 'plymouth=' for coordinate transformation
-global.rotation = 0;
-
-# --------------------------------- COORDINATE TRANSFORMATION -----------------
-
-# Transform coordinates based on rotation
-# Returns transformed [x, y] coordinates
-fun transform_coordinates(x, y) {
-  width = Window.GetWidth();
-  height = Window.GetHeight();
-  
-  result_x = x;
-  result_y = y;
-  
-  if (global.rotation == 90) {
-    # 90 degrees: swap and invert
-    result_x = height - y;
-    result_y = x;
-  } else if (global.rotation == 180) {
-    # 180 degrees: invert both
-    result_x = width - x;
-    result_y = height - y;
-  } else if (global.rotation == 270) {
-    # 270 degrees: swap and invert opposite
-    result_x = y;
-    result_y = width - x;
-  }
-  
-  return [result_x, result_y];
-}
-
-# Get effective dimensions for layout calculations
-fun get_layout_dimensions() {
-  if (global.rotation == 90 || global.rotation == 270) {
-    # Swapped dimensions
-    return [Window.GetHeight(), Window.GetWidth()];
-  }
-  return [Window.GetWidth(), Window.GetHeight()];
-}
+#  NOTE: This theme relies on fbcon rotation for display rotation.
+#        Use kernel parameters: video=HDMI-A-1:...,rotate=90 or fbcon=rotate:1
+#        Plymouth Script API does not support rotating text images.
 
 # --------------------------------- SETUP -------------------------------------
 
 Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
 Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
 
-# Get layout dimensions (may be swapped for 90/270)
-layout_dims = get_layout_dimensions();
-layout_width = layout_dims[0];
-layout_height = layout_dims[1];
+# Get screen dimensions
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
 
 # --------------------------------- TITLE TEXT --------------------------------
 
 # Create "Volumio Player" text - white color (1, 1, 1)
 title_font = "Sans Bold 16";
 
-# Adapt font size to effective screen dimensions
-if (layout_height < 480) {
+# Adapt font size to screen dimensions
+if (screen_height < 480) {
   title_font = "Sans Bold 12";
 }
-if (layout_height < 240) {
+if (screen_height < 240) {
   title_font = "Sans Bold 10";
 }
 
 title_image = Image.Text("Volumio Player", 1, 1, 1, 1, title_font);
 title_sprite = Sprite(title_image);
 
-# Center title in layout space
-title_x = layout_width / 2 - title_image.GetWidth() / 2;
-title_y = layout_height / 2 - 40;
+# Center title
+title_x = screen_width / 2 - title_image.GetWidth() / 2;
+title_y = screen_height / 2 - 40;
 
 # Ensure title is visible even on small screens
 if (title_y < 20) {
   title_y = 20;
 }
 
-# Transform coordinates for actual rotation
-title_pos = transform_coordinates(title_x, title_y);
-title_sprite.SetPosition(title_pos[0], title_pos[1], 10);
+title_sprite.SetPosition(title_x, title_y, 10);
 
 # --------------------------------- MESSAGE HANDLING --------------------------
 
 # Message display area below title
 message_font = "Sans 10";
 
-if (layout_height < 480) {
+if (screen_height < 480) {
   message_font = "Sans 8";
 }
-if (layout_height < 240) {
+if (screen_height < 240) {
   message_font = "Sans 6";
 }
 
 message_sprite = Sprite();
 
-# Calculate message position in layout space
+# Calculate message position
 message_y = title_y + title_image.GetHeight() + 15;
 
 # Store for callback
 global.message_font = message_font;
 global.message_y = message_y;
-global.layout_width = layout_width;
+global.screen_width = screen_width;
 
 fun message_callback(text) {
   # Display message centered below title
   # Truncate if too long
   max_chars = 60;
   
-  if (global.layout_width < 640) {
+  if (global.screen_width < 640) {
     max_chars = 40;
   }
-  if (global.layout_width < 320) {
+  if (global.screen_width < 320) {
     max_chars = 30;
   }
   
@@ -149,12 +104,9 @@ fun message_callback(text) {
   message_image = Image.Text(display_text, 0.9, 0.9, 0.9, 1, global.message_font);
   message_sprite.SetImage(message_image);
   
-  # Center the message in layout space
-  message_x = global.layout_width / 2 - message_image.GetWidth() / 2;
-  
-  # Transform coordinates for rotation
-  message_pos = transform_coordinates(message_x, global.message_y);
-  message_sprite.SetPosition(message_pos[0], message_pos[1], 10);
+  # Center the message
+  message_x = global.screen_width / 2 - message_image.GetWidth() / 2;
+  message_sprite.SetPosition(message_x, global.message_y, 10);
 }
 
 Plymouth.SetMessageFunction(message_callback);
@@ -187,13 +139,10 @@ fun password_callback(prompt, bullets) {
   }
   global.password_prompt.SetImage(prompt_image);
   
-  # Position in layout space
-  prompt_x = global.layout_width / 2 - prompt_image.GetWidth() / 2;
-  prompt_y = global.layout_height / 2 + 40;
-  
-  # Transform for rotation
-  prompt_pos = transform_coordinates(prompt_x, prompt_y);
-  global.password_prompt.SetPosition(prompt_pos[0], prompt_pos[1], 100);
+  # Center prompt
+  prompt_x = global.screen_width / 2 - prompt_image.GetWidth() / 2;
+  prompt_y = global.screen_height / 2 + 40;
+  global.password_prompt.SetPosition(prompt_x, prompt_y, 100);
   
   # Create bullets
   bullet_text = "";
@@ -207,14 +156,15 @@ fun password_callback(prompt, bullets) {
   }
   global.password_bullets.SetImage(bullet_image);
   
-  bullet_x = global.layout_width / 2 - bullet_image.GetWidth() / 2;
+  bullet_x = global.screen_width / 2 - bullet_image.GetWidth() / 2;
   bullet_y = prompt_y + 25;
-  
-  bullet_pos = transform_coordinates(bullet_x, bullet_y);
-  global.password_bullets.SetPosition(bullet_pos[0], bullet_pos[1], 100);
+  global.password_bullets.SetPosition(bullet_x, bullet_y, 100);
 }
 
 Plymouth.SetDisplayPasswordFunction(password_callback);
+
+# Store screen dimensions globally for password callback
+global.screen_height = screen_height;
 
 # --------------------------------- QUIT HANDLER ------------------------------
 
