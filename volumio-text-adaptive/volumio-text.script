@@ -1,0 +1,224 @@
+# volumio-text.script - Rotation-adaptive text mode Plymouth theme
+#
+# Copyright (C) 2025 Volumio Srl
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# --------------------------------- ROTATION DETECTION ------------------------
+
+# Parse /proc/cmdline for rotate= parameter
+global.rotation = 0;
+
+cmdline_file = "/proc/cmdline";
+cmdline_contents = ReadFile(cmdline_file);
+
+if (cmdline_contents) {
+  # Search for rotate=N pattern
+  cmdline_str = cmdline_contents;
+  
+  # Simple parser - look for rotate= followed by digits
+  # Check for rotate=0, rotate=90, rotate=180, rotate=270
+  if (StringContains(cmdline_str, "rotate=90")) {
+    global.rotation = 90;
+  } else if (StringContains(cmdline_str, "rotate=180")) {
+    global.rotation = 180;
+  } else if (StringContains(cmdline_str, "rotate=270")) {
+    global.rotation = 270;
+  } else {
+    global.rotation = 0;
+  }
+}
+
+# --------------------------------- COORDINATE TRANSFORMATION -----------------
+
+# Transform coordinates based on rotation
+# Returns transformed [x, y] coordinates
+fun transform_coordinates(x, y) {
+  width = Window.GetWidth();
+  height = Window.GetHeight();
+  
+  result_x = x;
+  result_y = y;
+  
+  if (global.rotation == 90) {
+    # 90 degrees: swap and invert
+    result_x = height - y;
+    result_y = x;
+  } else if (global.rotation == 180) {
+    # 180 degrees: invert both
+    result_x = width - x;
+    result_y = height - y;
+  } else if (global.rotation == 270) {
+    # 270 degrees: swap and invert opposite
+    result_x = y;
+    result_y = width - x;
+  }
+  
+  return [result_x, result_y];
+}
+
+# Get effective dimensions for layout calculations
+fun get_layout_dimensions() {
+  if (global.rotation == 90 || global.rotation == 270) {
+    # Swapped dimensions
+    return [Window.GetHeight(), Window.GetWidth()];
+  }
+  return [Window.GetWidth(), Window.GetHeight()];
+}
+
+# --------------------------------- SETUP -------------------------------------
+
+Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
+Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
+
+# Get layout dimensions (may be swapped for 90/270)
+layout_dims = get_layout_dimensions();
+layout_width = layout_dims[0];
+layout_height = layout_dims[1];
+
+# --------------------------------- TITLE TEXT --------------------------------
+
+# Create "Volumio Player" text - white color (1, 1, 1)
+title_font = "Sans Bold 16";
+
+# Adapt font size to effective screen dimensions
+if (layout_height < 480) {
+  title_font = "Sans Bold 12";
+}
+if (layout_height < 240) {
+  title_font = "Sans Bold 10";
+}
+
+title_image = Image.Text("Volumio Player", 1, 1, 1, 1, title_font);
+title_sprite = Sprite(title_image);
+
+# Center title in layout space
+title_x = layout_width / 2 - title_image.GetWidth() / 2;
+title_y = layout_height / 2 - 40;
+
+# Ensure title is visible even on small screens
+if (title_y < 20) {
+  title_y = 20;
+}
+
+# Transform coordinates for actual rotation
+title_pos = transform_coordinates(title_x, title_y);
+title_sprite.SetPosition(title_pos[0], title_pos[1], 10);
+
+# --------------------------------- MESSAGE HANDLING --------------------------
+
+# Message display area below title
+message_font = "Sans 10";
+
+if (layout_height < 480) {
+  message_font = "Sans 8";
+}
+if (layout_height < 240) {
+  message_font = "Sans 6";
+}
+
+message_sprite = Sprite();
+
+# Calculate message position in layout space
+message_y = title_y + title_image.GetHeight() + 15;
+
+# Store for callback
+global.message_font = message_font;
+global.message_y = message_y;
+global.layout_width = layout_width;
+
+fun message_callback(text) {
+  # Display message centered below title
+  # Truncate if too long
+  max_chars = 60;
+  
+  if (global.layout_width < 640) {
+    max_chars = 40;
+  }
+  if (global.layout_width < 320) {
+    max_chars = 30;
+  }
+  
+  display_text = text;
+  
+  # Create message image
+  message_image = Image.Text(display_text, 0.9, 0.9, 0.9, 1, global.message_font);
+  message_sprite.SetImage(message_image);
+  
+  # Center the message in layout space
+  message_x = global.layout_width / 2 - message_image.GetWidth() / 2;
+  
+  # Transform coordinates for rotation
+  message_pos = transform_coordinates(message_x, global.message_y);
+  message_sprite.SetPosition(message_pos[0], message_pos[1], 10);
+}
+
+Plymouth.SetMessageFunction(message_callback);
+
+# --------------------------------- BOOT PROGRESS -----------------------------
+
+# Simple progress callback - we show messages only
+fun progress_callback(duration, progress) {
+  # Progress is shown through system messages
+  # No visual progress bar in text theme
+}
+
+Plymouth.SetBootProgressFunction(progress_callback);
+
+# --------------------------------- PASSWORD PROMPT ---------------------------
+
+fun password_callback(prompt, bullets) {
+  # Clear any existing password sprites
+  if (global.password_prompt) {
+    global.password_prompt.SetImage(Image());
+  }
+  if (global.password_bullets) {
+    global.password_bullets.SetImage(Image());
+  }
+  
+  # Create prompt text
+  prompt_image = Image.Text(prompt, 1, 1, 1, 1, "Sans 12");
+  if (!global.password_prompt) {
+    global.password_prompt = Sprite();
+  }
+  global.password_prompt.SetImage(prompt_image);
+  
+  # Position in layout space
+  prompt_x = global.layout_width / 2 - prompt_image.GetWidth() / 2;
+  prompt_y = global.layout_height / 2 + 40;
+  
+  # Transform for rotation
+  prompt_pos = transform_coordinates(prompt_x, prompt_y);
+  global.password_prompt.SetPosition(prompt_pos[0], prompt_pos[1], 100);
+  
+  # Create bullets
+  bullet_text = "";
+  for (i = 0; i < bullets; i++) {
+    bullet_text = bullet_text + "*";
+  }
+  
+  bullet_image = Image.Text(bullet_text, 1, 1, 1, 1, "Sans 12");
+  if (!global.password_bullets) {
+    global.password_bullets = Sprite();
+  }
+  global.password_bullets.SetImage(bullet_image);
+  
+  bullet_x = global.layout_width / 2 - bullet_image.GetWidth() / 2;
+  bullet_y = prompt_y + 25;
+  
+  bullet_pos = transform_coordinates(bullet_x, bullet_y);
+  global.password_bullets.SetPosition(bullet_pos[0], bullet_pos[1], 100);
+}
+
+Plymouth.SetDisplayPasswordFunction(password_callback);
+
+# --------------------------------- QUIT HANDLER ------------------------------
+
+fun quit_callback() {
+  # Clean up on quit
+}
+
+Plymouth.SetQuitFunction(quit_callback);
