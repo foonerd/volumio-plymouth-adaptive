@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=Volumio Adaptive
-Description=Universal Volumio boot splash with adaptive rotation support via plymouth= parameter
+Description=Universal Volumio boot splash with adaptive rotation and transparent message overlays (v1.02)
 ModuleName=script
 
 [script]

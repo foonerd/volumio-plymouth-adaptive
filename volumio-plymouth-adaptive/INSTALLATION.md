@@ -4,9 +4,9 @@ Complete installation and testing instructions
 
 ## Overview
 
-This package provides a universal Plymouth boot splash theme that adapts to different display rotations. With the optional runtime detection system (recommended), rotation changes require only editing cmdline.txt and rebooting - no initramfs rebuilds needed. The theme uses pre-rendered image sequences for each rotation (0, 90, 180, 270 degrees).
+This package provides a universal Plymouth boot splash theme that adapts to different display rotations with transparent message overlays. With the optional runtime detection system (recommended), rotation changes require only editing cmdline.txt and rebooting - no initramfs rebuilds needed. The theme uses pre-rendered image sequences for each rotation (0, 90, 180, 270 degrees) and pre-rendered transparent overlay images for boot messages.
 
-**THEME NOTE**: This is the volumio-adaptive theme which uses the `plymouth=` parameter. For the companion volumio-text theme, which uses different rotation parameters (`video=...,rotate=` or `fbcon=rotate:`), see the volumio-text-adaptive documentation.
+**THEME NOTE**: This is the volumio-adaptive theme which uses the `plymouth=` parameter and transparent message overlays. For the companion volumio-text theme, which uses different rotation parameters (`video=...,rotate=` or `fbcon=rotate:`), see the volumio-text-adaptive documentation.
 
 ## Dual-Theme System
 
@@ -30,14 +30,27 @@ The repository contains two themes with different rotation approaches:
 
 ## Package Contents
 
-1. `volumio-adaptive.script` - Main Plymouth script with rotation support
+1. `volumio-adaptive.script` - Main Plymouth script with rotation and overlay support
 2. `volumio-adaptive.plymouth` - Theme configuration file
-3. `generate-rotated-sequences.sh` - Image generation script
-4. `runtime-detection/` - Optional runtime detection system (recommended)
+3. `generate-rotated-sequences.sh` - Animation sequence generation script
+4. `generate-overlays.sh` - Message overlay generation script
+5. `sequence0/` - Landscape orientation (animations + message overlays)
+   - progress-1.png through progress-90.png (animation frames)
+   - micro-1.png through micro-6.png (micro animation)
+   - overlay-*.png and overlay-*-compact.png (26 message overlay files)
+6. `sequence90/` - Portrait 90° (animations + message overlays, same file structure)
+7. `sequence180/` - Landscape 180° (animations + message overlays, same file structure)
+8. `sequence270/` - Portrait 270° (animations + message overlays, same file structure)
+9. `runtime-detection/` - Optional runtime detection system (recommended)
    - `00-plymouth-rotation` - Init-premount script
    - `plymouth-rotation.sh` - Systemd script
    - `plymouth-rotation.service` - Service unit
    - `RUNTIME-DETECTION-INSTALL.md` - Installation guide
+10. `docs/` - Additional documentation
+11. `examples/` - Configuration examples
+12. `INSTALLATION.md` - This file
+13. `QUICK_REFERENCE.md` - Quick command reference
+14. `README.md` - Theme documentation
 
 ## Prerequisites
 
@@ -52,6 +65,27 @@ The repository contains two themes with different rotation approaches:
 ```bash
 sudo apt-get install imagemagick
 ```
+
+### Verify Overlay Images
+
+The theme includes 104 pre-rendered message overlay images (26 per rotation):
+```bash
+# Verify overlay images exist in sequence directories
+ls volumio-adaptive/sequence0/overlay-*.png | wc -l
+# Should show: 26
+
+# Verify all overlay images across all rotations
+ls volumio-adaptive/sequence*/overlay-*.png | wc -l
+# Should show: 104
+```
+
+If overlay images are missing, generate them:
+```bash
+cd volumio-adaptive
+./generate-overlays.sh
+```
+
+**Note**: `generate-overlays.sh` requires ImageMagick. It creates 104 transparent PNG overlays (13 messages × 2 sizes × 4 rotations) and places them directly in each sequence directory alongside animation frames.
 
 ## Installation Steps
 
@@ -92,6 +126,8 @@ This will create:
 - `/usr/share/plymouth/themes/volumio-adaptive/sequence270/`
 
 **Expected output**: 97 files per directory (90 progress + 6 micro + 1 layout-constraint)
+
+**After adding overlays**: 123 files per directory (97 animations + 26 overlay files)
 
 ### Step 4: Set Permissions
 
@@ -473,7 +509,7 @@ ls -la /usr/share/plymouth/themes/volumio-adaptive/sequence180/ | wc -l
 ls -la /usr/share/plymouth/themes/volumio-adaptive/sequence270/ | wc -l
 ```
 
-Each should show 97 files (plus . and ..).
+Each should show 123 files (plus . and ..) - 97 animation files + 26 overlay files.
 
 ## Advanced Configuration
 
@@ -574,6 +610,14 @@ For issues or questions:
 6. Report to Volumio development team with debug log
 
 ## Version History
+
+**1.02** - Overlay messaging system (Current)
+- Transparent message overlay system for boot messages
+- Pattern matching for 13 Volumio boot messages
+- OEM compatibility (handles version variables in messages)
+- Adaptive sizing based on display dimensions (400px breakpoint)
+- Z-index layering (logo below, overlay above)
+- 104 pre-rendered overlay images (13 messages × 2 sizes × 4 rotations)
 
 **1.0** - Initial release with adaptive rotation support
 - Four rotation presets (0, 90, 180, 270)

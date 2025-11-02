@@ -4,7 +4,7 @@ Dynamic boot splash and UI themes for Volumio that adapt to display rotation wit
 
 ## Project Status
 
-- **volumio-plymouth-adaptive**: Complete and tested (v1.0)
+- **volumio-plymouth-adaptive**: Complete and tested (v1.02)
 - **volumio-text-adaptive**: Complete and tested (v1.0)
 
 ## Overview
@@ -15,22 +15,25 @@ This repository contains adaptive themes for Volumio systems running on Raspberr
 
 ### volumio-plymouth-adaptive
 
-A Plymouth boot splash theme that dynamically adapts to display rotation.
+A Plymouth boot splash theme that dynamically adapts to display rotation with transparent message overlays.
 
-**Problem Solved**: Plymouth boot splash fails on rotated Raspberry Pi displays because kernel rotation affects the console but not Plymouth's framebuffer access. Traditional solutions require rebuilding initramfs for each display change.
+**Problem Solved**: Plymouth boot splash fails on rotated Raspberry Pi displays because kernel rotation affects the console but not Plymouth's framebuffer access. Traditional solutions require rebuilding initramfs for each display change. Additionally, Plymouth's dynamic text rendering produces severe clipping artifacts when rotated, making boot messages unreadable.
 
-**Solution**: Pre-rotates images for all orientations (0, 90, 180, 270 degrees) and dynamically loads the correct set based on the `plymouth=` kernel parameter.
+**Solution**: Pre-rotates images for all orientations (0, 90, 180, 270 degrees) and dynamically loads the correct set based on the `plymouth=` kernel parameter. Boot messages use pre-rendered transparent PNG overlays with pattern matching for reliable display at all rotations.
 
 **Features**:
 - Runtime rotation detection (no initramfs rebuild required)
 - Pre-rotated image sequences for all orientations
+- Transparent message overlay system (13 Volumio boot messages)
+- Pattern matching with OEM compatibility (handles version variables)
+- Adaptive sizing based on display dimensions (400px breakpoint)
+- Z-index layering (logo visible through transparent overlays)
 - Works with Volumio OTA updates
-- Preserves all volumio-player theme features
 - Debug overlay with rotation information
 - Supports both micro (6 frame) and progress (90 frame) sequences
 - Init-premount and systemd service for boot/shutdown detection
 
-**Status**: Complete, tested on Raspberry Pi 5 with Waveshare 11.9" LCD
+**Status**: Complete, tested on Raspberry Pi 5 with Waveshare 11.9" LCD (v1.02)
 
 See [volumio-plymouth-adaptive/README.md](volumio-plymouth-adaptive/README.md) for details.
 
@@ -190,6 +193,17 @@ See [AUTHORS](AUTHORS)
 
 ## Change Log
 
+### Version 1.02 (November 2, 2025)
+- volumio-plymouth-adaptive: Transparent message overlay system
+  - 13 Volumio boot message overlays with pattern matching
+  - OEM compatibility (handles version variables in messages)
+  - Adaptive sizing based on display dimensions (400px breakpoint)
+  - Z-index layering (logo visible through transparent overlays)
+  - 104 pre-rendered overlay images (13 messages × 2 sizes × 4 rotations)
+  - Overlays placed directly in sequence directories alongside animations
+  - Why overlays: Plymouth Image.Text.Rotate() produces severe clipping artifacts
+  - generate-overlays.sh script for regenerating custom overlays
+
 ### Version 1.0 (October 30, 2025)
 - Initial release
 - volumio-plymouth-adaptive complete
@@ -211,6 +225,7 @@ See [AUTHORS](AUTHORS)
 - Works on all architectures (ARM, amd64)
 - Plymouth API limitations bypassed with init-premount scripting
 - Supports both boot and shutdown rotation adaptation
+- v1.02: Overlay system solves Plymouth text rotation clipping issue
 
 ### Future Updates
 - This section will track additions and changes

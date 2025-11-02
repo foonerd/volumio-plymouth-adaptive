@@ -25,9 +25,10 @@ volumio-plymouth-adaptive/
   README.md                     - Theme overview and features
   INSTALLATION.md               - Step-by-step installation guide
   QUICK_REFERENCE.md            - Command reference and troubleshooting
-  volumio-adaptive.script       - Main Plymouth script (8.4 KB)
+  volumio-adaptive.script       - Main Plymouth script (8.7 KB)
   volumio-adaptive.plymouth     - Theme configuration (296 bytes)
-  generate-rotated-sequences.sh - Image generation script (4.1 KB)
+  generate-rotated-sequences.sh - Animation sequence generation script (4.1 KB)
+  generate-overlays.sh          - Message overlay generation script (6.8 KB) [NEW v1.02]
   
   runtime-detection/
     00-plymouth-rotation        - Init-premount script for boot detection
@@ -42,10 +43,10 @@ volumio-plymouth-adaptive/
     TROUBLESHOOTING.md          - Common issues and solutions
     TECHNICAL.md                - Technical implementation details
   
-  sequence0/                    - NOT IN REPO (generated locally)
-  sequence90/                   - NOT IN REPO (generated locally)
-  sequence180/                  - NOT IN REPO (generated locally)
-  sequence270/                  - NOT IN REPO (generated locally)
+  sequence0/                    - NOT IN REPO (generated locally, contains animations + overlays)
+  sequence90/                   - NOT IN REPO (generated locally, contains animations + overlays)
+  sequence180/                  - NOT IN REPO (generated locally, contains animations + overlays)
+  sequence270/                  - NOT IN REPO (generated locally, contains animations + overlays)
 ```
 
 ## volumio-text-adaptive/
@@ -83,11 +84,15 @@ docs/
 ### Image Sequences Excluded
 
 The sequence0/, sequence90/, sequence180/, and sequence270/ directories contain:
-- 97 PNG files each (388 files total)
-- Approximately 50-100 MB total size
+- 123 PNG files each (492 files total) - v1.02
+  - 97 animation files (progress-*.png, micro-*.png, layout-constraint.png)
+  - 26 overlay files (overlay-*.png, overlay-*-compact.png)
+- Approximately 60-120 MB total size
 - Too large for git repository
 
-Users generate these locally using generate-rotated-sequences.sh.
+Users generate these locally:
+- Animations: generate-rotated-sequences.sh
+- Overlays: generate-overlays.sh (NEW v1.02)
 
 ### Documentation Format
 
@@ -161,7 +166,7 @@ Standard GitHub features:
 
 ## Future Additions
 
-Version 1.0 includes both core themes (plymouth-adaptive and text-adaptive).
+Version 1.02 includes both core themes (plymouth-adaptive with overlay messaging, text-adaptive).
 
 As the project grows:
 - Additional theme variants may follow same pattern

@@ -1,12 +1,12 @@
-# Volumio-Adaptive Plymouth Theme
+# Volumio-Adaptive Plymouth Theme (v1.02)
 
-Universal boot splash theme with adaptive rotation support for Volumio
+Universal boot splash theme with adaptive rotation support and transparent message overlays for Volumio
 
 ## Overview
 
-Volumio-adaptive is a Plymouth boot splash theme that solves the display rotation problem for Raspberry Pi systems with rotated displays. Unlike traditional Plymouth themes that require initramfs rebuilds when changing displays, volumio-adaptive reads a `plymouth=` parameter from the kernel command line and dynamically loads pre-rotated images.
+Volumio-adaptive is a Plymouth boot splash theme that solves the display rotation problem for Raspberry Pi systems with rotated displays. Unlike traditional Plymouth themes that require initramfs rebuilds when changing displays, volumio-adaptive reads a `plymouth=` parameter from the kernel command line and dynamically loads pre-rotated images. Boot messages are displayed using transparent PNG overlays with pattern matching, ensuring reliable visibility at all rotation angles.
 
-**This is the volumio-adaptive theme** which uses pre-rotated image sequences and the `plymouth=` parameter. For the companion volumio-text theme (which uses dynamic text rendering with framebuffer rotation), see the volumio-text-adaptive documentation.
+**This is the volumio-adaptive theme** which uses pre-rotated image sequences, transparent message overlays, and the `plymouth=` parameter. For the companion volumio-text theme (which uses dynamic text rendering with framebuffer rotation), see the volumio-text-adaptive documentation.
 
 ## Dual-Theme System
 
@@ -15,7 +15,8 @@ This repository provides two complementary themes with different rotation approa
 ### volumio-adaptive (This Theme)
 - **Rotation method**: Pre-rotated image sequences
 - **Parameter**: plymouth=0 or 90 or 180 or 270
-- **Content**: Static images (Volumio logo animation)
+- **Content**: Static images (Volumio logo animation) + transparent message overlays
+- **Messages**: 13 Volumio boot messages with pattern matching
 - **Runtime detection**: Supported (recommended)
 - **Parameter location**: /boot/cmdline.txt
 
@@ -34,9 +35,12 @@ This repository provides two complementary themes with different rotation approa
 - ONE theme works across ALL display orientations
 - NO initramfs rebuild needed when changing displays (with runtime detection)
 - Supports 0, 90, 180, and 270 degree rotations
+- Transparent message overlay system for boot messages
+- Pattern matching for 13 Volumio boot messages (OEM compatible)
+- Adaptive sizing based on display dimensions (400px breakpoint)
+- Z-index layering (logo below, transparent overlay above)
 - Runtime detection automatically patches rotation value at boot
 - Automatic micro/progress sequence selection based on screen size
-- Preserves all volumio-player features (messages, debug overlay)
 - Self-contained and portable
 - Pre-rotated image sequences for each rotation
 - plymouth= parameter for rotation control
@@ -73,16 +77,97 @@ Standard Plymouth themes fail on Raspberry Pi with rotated displays because:
 
 **Alternative Solution (volumio-text)**: Use framebuffer rotation to rotate the entire display before Plymouth renders, eliminating the need for pre-rotated content.
 
+## Message Overlay System
+
+### How It Works
+
+Volumio-adaptive v1.02 introduces a transparent message overlay system for displaying boot messages:
+
+**Architecture**:
+- **Logo sprite** (Z-index 1): Volumio animation renders below
+- **Message overlay sprite** (Z-index 2): Transparent PNG with text renders above
+- Logo remains visible through transparent areas of overlay
+- Text appears below logo in all rotation orientations
+
+**Why Overlays?**
+
+Plymouth's `Image.Text.Rotate()` function exists but produces severe text clipping artifacts when rotated, making boot messages unreadable on portrait displays. This is a documented limitation in upstream Plymouth affecting all Linux distributions. The pre-rendered overlay approach:
+- Guarantees perfect text quality at all rotation angles
+- Eliminates coordinate transformation complexity
+- Works universally across all display configurations
+- Maintains logo visibility through transparency
+
+### Supported Messages
+
+The theme includes pattern matching for 13 critical Volumio boot messages:
+
+1. Player preparing startup
+2. Finishing storage preparations
+3. Player prepared, please wait for startup to finish (handles version variables)
+4. Player re-starting now
+5. Receiving player update from USB
+6. Player update from USB completed
+7. Remove USB used for update (critical firmware message)
+8. Performing factory reset
+9. Performing player update (critical firmware message)
+10. Success, player restarts
+11. Expanding internal storage
+12. Waiting for USB devices
+13. Player internal parameters update
+
+**Pattern Matching**: Messages use substring matching to handle variable content (version numbers, timeouts). This ensures OEM build compatibility where messages may include custom variables.
+
+### Adaptive Sizing
+
+Overlays automatically select size variant based on display dimensions:
+
+- **Breakpoint**: 400 pixels (smallest dimension)
+- **Large overlays**: Used when smallest dimension ≥ 400px (16pt font)
+- **Compact overlays**: Used when smallest dimension < 400px (12pt font)
+
+Formula: `smaller_dimension = min(screen_width, screen_height)`
+
+This works correctly regardless of native portrait or landscape orientation.
+
+### Overlay Specifications
+
+**Image Format**: Transparent PNG
+**Dimensions**: 
+- Sequence 0/180: 480-683 × 380 pixels (landscape)
+- Sequence 90/270: 380 × 480-683 pixels (portrait)
+- Width varies dynamically based on message length
+
+**Generation**: Use `generate-overlays.sh` to regenerate overlays with custom messages or fonts. Requires ImageMagick.
+
 ## Package Contents
 
-- `volumio-adaptive.script` - Main Plymouth script with rotation support
+Theme files:
+- `volumio-adaptive.script` - Main Plymouth script with rotation and overlay support
 - `volumio-adaptive.plymouth` - Theme configuration file
-- `generate-rotated-sequences.sh` - Image generation script
-- `runtime-detection/` - Optional runtime detection scripts (recommended)
-  - `00-plymouth-rotation` - Init-premount script for boot phase
-  - `plymouth-rotation.sh` - Systemd script for shutdown phase
-  - `plymouth-rotation.service` - Systemd service unit
-  - `RUNTIME-DETECTION-INSTALL.md` - Installation guide
+
+Generation scripts:
+- `generate-rotated-sequences.sh` - Animation sequence generation script
+- `generate-overlays.sh` - Message overlay generation script
+
+Image sequences (animations + overlays combined):
+- `sequence0/` - Landscape orientation
+  - progress-1.png through progress-90.png (animation frames)
+  - micro-1.png through micro-6.png (micro animation)
+  - overlay-*.png and overlay-*-compact.png (26 message overlays)
+- `sequence90/` - Portrait 90° (same file structure)
+- `sequence180/` - Landscape 180° (same file structure)
+- `sequence270/` - Portrait 270° (same file structure)
+
+Runtime detection:
+- `runtime-detection/00-plymouth-rotation` - Init-premount script
+- `runtime-detection/plymouth-rotation.sh` - Systemd script
+- `runtime-detection/plymouth-rotation.service` - Service unit
+- `runtime-detection/RUNTIME-DETECTION-INSTALL.md` - Installation guide
+
+Documentation:
+- `docs/TECHNICAL.md` - Technical implementation details
+- `docs/TROUBLESHOOTING.md` - Common issues and solutions
+- `examples/cmdline-examples.txt` - Sample kernel parameters
 - `INSTALLATION.md` - Detailed installation instructions
 - `QUICK_REFERENCE.md` - Quick command reference
 - `README.md` - This file

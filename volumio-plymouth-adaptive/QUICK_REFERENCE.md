@@ -11,11 +11,14 @@ sudo mkdir -p /usr/share/plymouth/themes/volumio-adaptive
 sudo chown volumio:volumio /usr/share/plymouth/themes/volumio-adaptive
 ```
 
-### 2. Copy files
-
+### 2. Copy theme files
 ```bash
+# Copy script and theme definition
 sudo cp volumio-adaptive.script /usr/share/plymouth/themes/volumio-adaptive/
 sudo cp volumio-adaptive.plymouth /usr/share/plymouth/themes/volumio-adaptive/
+
+# Copy message overlays
+sudo cp -r overlays /usr/share/plymouth/themes/volumio-adaptive/
 ```
 
 ### 3. Generate rotated images
@@ -56,6 +59,66 @@ sudo update-initramfs -u
 ```
 
 See: `runtime-detection/RUNTIME-DETECTION-INSTALL.md` for details.
+
+## Message Overlay System
+
+### Verify overlays installed
+```bash
+# Check overlay files in installed theme
+ls /usr/share/plymouth/themes/volumio-adaptive/sequence*/overlay-*.png | wc -l
+# Should show: 104
+
+# Check one sequence directory
+ls /usr/share/plymouth/themes/volumio-adaptive/sequence0/overlay-*.png | wc -l
+# Should show: 26
+```
+
+### Test message display
+```bash
+# Start Plymouth
+sudo plymouthd --debug --debug-file=/tmp/plymouth-debug.log
+sudo plymouth --show-splash
+
+# Test a message
+sudo plymouth message --text="Receiving player update from USB, this can take several minutes"
+
+# Wait 5 seconds to see overlay
+
+# Stop Plymouth
+sudo plymouth quit
+```
+
+### Regenerate overlays (if needed)
+```bash
+cd /path/to/volumio-adaptive
+./generate-overlays.sh
+
+# Copy updated overlays to installed theme
+sudo cp sequence*/overlay-*.png /usr/share/plymouth/themes/volumio-adaptive/sequence0/
+sudo cp sequence*/overlay-*.png /usr/share/plymouth/themes/volumio-adaptive/sequence90/
+sudo cp sequence*/overlay-*.png /usr/share/plymouth/themes/volumio-adaptive/sequence180/
+sudo cp sequence*/overlay-*.png /usr/share/plymouth/themes/volumio-adaptive/sequence270/
+
+# Rebuild initramfs
+sudo plymouth-set-default-theme -R volumio-adaptive
+```
+
+### Supported messages
+
+Pattern matching handles 13 Volumio boot messages:
+- Player preparing startup
+- Finishing storage preparations
+- Player prepared, please wait for startup to finish
+- Player re-starting now
+- Receiving player update from USB
+- Player update from USB completed
+- Remove USB used for update
+- Performing factory reset
+- Performing player update
+- Success, player restarts
+- Expanding internal storage
+- Waiting for USB devices
+- Player internal parameters update
 
 ## Changing Display Rotation
 
