@@ -83,6 +83,457 @@ Volumio uses a specific file hierarchy for boot configuration:
 
 **Summary**: Different themes, different methods. Both work for their specific use cases.
 
+### Message Overlay System Architecture (v1.02)
+
+**Version**: 1.02 introduces transparent message overlay system for boot messages.
+
+**Problem Statement**: Plymouth boot messages need to be displayed at all rotation angles, but Plymouth Script API limitations prevent dynamic text rotation:
+
+1. No `Image.Rotate()` function exists
+2. `Image.Text()` creates only horizontal text
+3. Rotating text images produces severe clipping artifacts
+4. Dynamic text rotation is impossible at runtime
+
+**Solution**: Pre-rendered transparent PNG overlays with pattern matching.
+
+#### Design Rationale
+
+**Why NOT Dynamic Text Rendering:**
+
+Attempted approaches that failed:
+1. `Image.Text().Rotate()` - Function does not exist
+2. Creating text then rotating - Produces severe clipping (text cuts off at edges)
+3. Coordinate transformation - Cannot transform individual glyphs
+4. Canvas rotation - No canvas API in Plymouth Script
+
+**Evidence**: volumio-player-ccw theme explicitly disables messages (line 122-124) with comment: "plymouth is unable to rotate properly in init"
+
+**Why Transparent Overlays Work:**
+
+1. Pre-rendered images guarantee perfect text quality
+2. Transparency preserves logo visibility
+3. No runtime rotation needed
+4. Works universally across all display configurations
+5. Simple pattern matching for message detection
+
+#### Architecture Components
+
+**1. Z-Index Layering System**
+
+```
+Z-index 0: Background (debug only, when enabled)
+Z-index 1: Logo animation sprite (progress or micro sequence)
+Z-index 2: Message overlay sprite (transparent PNG with text)
+Z-index 9999: Debug text overlay (when enabled)
+```
+
+**Key principle**: Logo renders BELOW overlay, visible through transparent areas.
+
+**2. Overlay Image Structure**
+
+Directory layout:
+```
+sequence0/
+  progress-*.png         (animation frames)
+  micro-*.png           (animation frames)
+  overlay-*.png         (message overlays - large)
+  overlay-*-compact.png (message overlays - small)
+
+sequence90/  (same structure)
+sequence180/ (same structure)
+sequence270/ (same structure)
+```
+
+**Total**: 26 overlay files per sequence × 4 rotations = 104 overlay images
+
+**3. Message Pattern Matching**
+
+Function: `GetOverlayFilename(message_text)`
+
+**Purpose**: Map Volumio boot messages to overlay filenames using substring matching.
+
+**Why Pattern Matching:**
+- Messages may contain variables (version numbers, timeouts)
+- OEM builds may customize message text
+- Need robust matching across Volumio variants
+
+**Example**:
+```plymouth
+# Actual message from Volumio:
+"Version 3.569 prepared, please wait for startup to finish"
+
+# Pattern match:
+if (StringContains(message_text, "prepared, please wait for startup to finish"))
+    return "overlay-player-prepared";
+```
+
+Matches on common substring, ignores version variable.
+
+**Supported Messages** (13 total):
+
+1. "Player preparing startup"
+2. "Finishing storage preparations"
+3. "prepared, please wait for startup to finish" (with version variable)
+4. "Player re-starting now"
+5. "Receiving player update from USB"
+6. "Player update from USB completed"
+7. "Remove USB used for update"
+8. "Performing factory reset"
+9. "Performing player update"
+10. "Success, player restarts"
+11. "Expanding internal storage"
+12. "Waiting for USB devices"
+13. "Player internal" (parameters update message)
+
+**4. Adaptive Sizing System**
+
+**Breakpoint**: 400 pixels (smallest dimension)
+
+**Formula**:
+```plymouth
+smaller_dimension = Window.GetWidth();
+if (Window.GetHeight() < smaller_dimension) {
+  smaller_dimension = Window.GetHeight();
+}
+
+if (smaller_dimension < 400) {
+  overlay_size_suffix = "-compact";
+} else {
+  overlay_size_suffix = "";
+}
+```
+
+**Size Variants**:
+- **Large overlays**: 16pt font, used when smallest dimension ≥ 400px
+- **Compact overlays**: 12pt font, used when smallest dimension < 400px
+
+**Examples**:
+- 1920×1080 display: smallest=1080 → large overlays
+- 1480×320 display: smallest=320 → compact overlays
+- 640×480 display: smallest=480 → large overlays
+
+**Why smallest dimension**: Works correctly regardless of native orientation (portrait or landscape).
+
+**5. Overlay Loading Flow**
+
+```
+Plymouth.SetMessageFunction(message_callback)
+  |
+  v
+message_callback(text) receives message
+  |
+  v
+GetOverlayFilename(text) - pattern matching
+  |
+  v
+overlay_filename found or ""
+  |
+  v
+IF filename != "":
+  overlay_path = image_subdir + overlay_filename + overlay_size_suffix + ".png"
+  Example: "sequence0/overlay-player-prepared.png"
+  |
+  v
+  Image(overlay_path) - load overlay
+  |
+  v
+  Center overlay in framebuffer
+  |
+  v
+  message_overlay_sprite.SetOpacity(1) - show overlay
+ELSE:
+  message_overlay_sprite.SetOpacity(0) - hide overlay
+```
+
+**6. Helper Functions**
+
+**StringLength(string)**:
+- Counts characters in string
+- Used by StringContains for bounds checking
+- Returns integer count
+
+**StringContains(haystack, needle)**:
+- Substring matching function
+- Returns 1 if needle found in haystack, 0 otherwise
+- Implements sliding window comparison
+- Case-sensitive matching
+
+**GetOverlayFilename(message_text)**:
+- Maps message text to overlay filename
+- Uses StringContains for pattern matching
+- Returns filename string or empty string ""
+- Handles 13 Volumio message patterns
+
+#### Technical Specifications
+
+**Overlay Image Format**:
+- Format: PNG with alpha channel
+- Background: Fully transparent (alpha=0)
+- Text: White (RGB 255,255,255, alpha=255)
+- Anti-aliasing: Enabled for smooth text
+
+**Dimensions**:
+- **sequence0/180** (landscape):
+  - Width: 480-683 pixels (varies by message length)
+  - Height: 380 pixels (large), 322 pixels (compact)
+  
+- **sequence90/270** (portrait):
+  - Width: 380 pixels (large), 320 pixels (compact)
+  - Height: 480-683 pixels (varies by message length)
+
+**Dynamic Width Calculation**:
+```bash
+# In generate-overlays.sh
+text_length=${#message_text}
+text_width_needed=$(echo "$FONT_SIZE * 0.6 * $text_length" | bc)
+text_width_with_margin=$((text_width_needed + 40))
+
+if [ $text_width_with_margin -gt 480 ]; then
+    WIDTH=$text_width_with_margin
+else
+    WIDTH=480
+fi
+```
+
+**Font Specifications**:
+- Font family: Liberation-Sans (DejaVu-Sans fallback)
+- Size (large): 16pt
+- Size (compact): 12pt
+- Color: White
+- Weight: Regular
+
+#### Performance Characteristics
+
+**Memory Usage**:
+- Each overlay: ~3-5 KB (PNG with transparency)
+- Total overlays in memory: 0 KB (loaded on-demand, one at a time)
+- Animation frames: ~800 KB (progress) or ~50 KB (micro)
+- Combined: ~800-850 KB peak memory
+
+**Loading Performance**:
+- Overlay loading: <10ms per image
+- Pattern matching: <1ms (string operations)
+- No pre-loading: Overlays loaded only when message displayed
+- Sprite reuse: Single message_overlay_sprite reused for all messages
+
+**CPU Impact**:
+- Pattern matching: Negligible (simple string comparison)
+- Image loading: One-time per message display
+- No continuous processing: Overlay shown until next message
+- Z-index rendering: Hardware-accelerated by Plymouth/DRM
+
+#### Integration with Animation System
+
+**Simultaneous Rendering**:
+```
+Frame N:
+  1. logo_sprite renders animation frame (Z=1)
+  2. message_overlay_sprite renders overlay (Z=2)
+  3. Compositor blends: logo → overlay (transparent areas show logo)
+```
+
+**Animation Continues**:
+- Logo animation progresses regardless of overlay state
+- refresh_callback() updates logo_sprite independently
+- message_callback() updates message_overlay_sprite independently
+- No interference between logo and overlay rendering
+
+**Sprite Independence**:
+- `logo_sprite`: Controlled by refresh_callback(), Z=1
+- `message_overlay_sprite`: Controlled by message_callback(), Z=2
+- Separate image loading
+- Separate positioning
+- Separate opacity control
+
+#### Comparison with V1.0 (Text Scrolling)
+
+**V1.0 Implementation** (removed in v1.02):
+- Used `Image.Text()` for dynamic text rendering
+- Text scrolling with line wrapping
+- Z-index 10000 (above logo)
+- Black background behind text
+- No rotation support (horizontal text only)
+
+**V1.02 Implementation** (current):
+- Uses pre-rendered transparent PNG overlays
+- No scrolling (static display)
+- Z-index 2 (above logo but lower than v1.0)
+- Transparent background (logo visible)
+- Full rotation support (4 orientations)
+
+**Key Improvements**:
+- Messages visible at all rotation angles
+- Logo remains visible through transparency
+- Consistent text quality (no rendering artifacts)
+- Pattern matching handles message variations
+- Adaptive sizing for different displays
+
+**Trade-offs**:
+- Fixed message set (13 messages)
+- No dynamic message composition
+- Requires 104 pre-rendered images
+- +312 KB storage for overlays
+
+#### Generation and Customization
+
+**Overlay Generation Script**: `generate-overlays.sh`
+
+**Requirements**:
+- ImageMagick (convert command)
+- bash with associative arrays
+- bc (for floating-point math)
+
+**Generation Process**:
+```bash
+./generate-overlays.sh
+# Creates 104 PNG files in sequence directories
+# 13 messages × 2 sizes × 4 rotations = 104 files
+```
+
+**Customization**:
+
+1. **Add new message**:
+   ```bash
+   # Edit generate-overlays.sh
+   MESSAGES["new-message"]="Your new message text"
+   
+   # Edit volumio-adaptive.script
+   if (StringContains(message_text, "Your new message"))
+       return "overlay-new-message";
+   ```
+
+2. **Change font**:
+   ```bash
+   # Edit generate-overlays.sh
+   -font Liberation-Sans
+   # Change to desired font
+   ```
+
+3. **Adjust sizes**:
+   ```bash
+   # Edit generate-overlays.sh
+   FONT_SIZE=16  # Change large size
+   FONT_SIZE=12  # Change compact size
+   ```
+
+4. **Regenerate**:
+   ```bash
+   ./generate-overlays.sh
+   sudo cp sequence*/overlay-*.png /usr/share/plymouth/themes/volumio-adaptive/sequence*/
+   sudo plymouth-set-default-theme -R volumio-adaptive
+   ```
+
+#### Debugging Overlay System
+
+**Enable Debug Overlay**:
+```plymouth
+enable_debug_overlay = (Window.GetWidth() > -1);  // Always true
+```
+
+**Debug Information Displayed**:
+- "ADAPTIVE SCRIPT OK" - Script loaded
+- "FB: WxH" - Framebuffer dimensions
+- "ROTATION: X" - Detected rotation
+- "MICRO: 0/1" - Sequence type
+
+**Test Message Display**:
+```bash
+sudo plymouthd --debug
+sudo plymouth --show-splash
+sudo plymouth message --text="Player prepared, please wait for startup to finish"
+# Wait to see overlay
+sudo plymouth quit
+```
+
+**Check Overlay Files**:
+```bash
+ls /usr/share/plymouth/themes/volumio-adaptive/sequence0/overlay-*.png | wc -l
+# Should show: 26
+
+ls /usr/share/plymouth/themes/volumio-adaptive/sequence*/overlay-*.png | wc -l
+# Should show: 104
+```
+
+**Verify Pattern Matching**:
+- Check Plymouth debug log: `/tmp/plymouth-debug.log`
+- Search for message_callback execution
+- Verify GetOverlayFilename returns expected filename
+
+#### Limitations and Known Issues
+
+**1. Fixed Message Set**:
+- Only 13 predefined messages supported
+- New messages require code modification + regeneration
+- Cannot handle arbitrary dynamic messages
+
+**2. Storage Requirements**:
+- 104 overlay images: ~312 KB
+- Total theme storage: ~3-4 MB (animations + overlays)
+- Not suitable for extremely storage-constrained systems
+
+**3. Pattern Matching Constraints**:
+- Case-sensitive matching
+- Requires exact substring match
+- Messages with unexpected formatting may not match
+- No regex or wildcard support
+
+**4. No Message Queueing**:
+- Only one message displayed at a time
+- New message replaces previous immediately
+- No message history or scrollback
+
+**5. Plymouth Script Limitations**:
+- Cannot dynamically compose overlays
+- Cannot adjust text color or effects at runtime
+- Cannot animate overlay transitions
+- No fade-in/fade-out effects
+
+#### Future Enhancement Possibilities
+
+**Within Current Architecture**:
+- Add more message patterns (requires regeneration)
+- Adjust font sizes or styles (requires regeneration)
+- Customize text positioning in overlays (requires regeneration)
+- Add message priority system (code change only)
+
+**Requires Architecture Change**:
+- Dynamic message composition (impossible - Plymouth API limitation)
+- Text color changes (impossible - pre-rendered)
+- Message animation (possible but complex)
+- Multiple simultaneous messages (possible with more sprites)
+
+#### Cross-Platform Compatibility
+
+**Tested Platforms**:
+- Raspberry Pi OS Bookworm (ARM)
+- Volumio 4.x (ARM)
+- Works on amd64 (Intel/AMD systems)
+
+**Display Compatibility**:
+- FHD (1920×1080): Large overlays
+- QHD (2560×1440): Large overlays
+- 1480×320 (Waveshare): Compact overlays
+- 640×480: Large overlays
+- Portrait and landscape orientations
+
+**Plymouth Versions**:
+- Tested: Plymouth 22.02 (Debian Bookworm)
+- Should work: Any Plymouth with Script plugin
+- Requirement: DRM/KMS support for transparency
+
+#### Summary
+
+V1.02 message overlay system provides:
+- Reliable boot message display at all rotation angles
+- Logo visibility through transparency
+- OEM-compatible pattern matching
+- Adaptive sizing for various displays
+- Minimal performance impact
+- Simple customization through shell script
+
+Trade-off: Pre-rendered approach requires storage and fixed message set, but eliminates 
+
+
 ### Runtime Detection Solution
 
 **Implementation**: Two-phase patching system for volumio-adaptive theme.

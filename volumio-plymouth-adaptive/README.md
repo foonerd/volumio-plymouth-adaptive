@@ -35,12 +35,13 @@ This repository provides two complementary themes with different rotation approa
 - ONE theme works across ALL display orientations
 - NO initramfs rebuild needed when changing displays (with runtime detection)
 - Supports 0, 90, 180, and 270 degree rotations
-- Transparent message overlay system for boot messages
-- Pattern matching for 13 Volumio boot messages (OEM compatible)
-- Adaptive sizing based on display dimensions (400px breakpoint)
-- Z-index layering (logo below, transparent overlay above)
+- Transparent message overlay system for boot messages (v1.02)
+- Pattern matching for 13 Volumio boot messages with OEM compatibility (v1.02)
+- Adaptive sizing based on display dimensions (400px breakpoint) (v1.02)
+- Z-index layering (logo visible through transparent overlays) (v1.02)
 - Runtime detection automatically patches rotation value at boot
 - Automatic micro/progress sequence selection based on screen size
+- Debug overlay with rotation information
 - Self-contained and portable
 - Pre-rotated image sequences for each rotation
 - plymouth= parameter for rotation control
@@ -77,29 +78,42 @@ Standard Plymouth themes fail on Raspberry Pi with rotated displays because:
 
 **Alternative Solution (volumio-text)**: Use framebuffer rotation to rotate the entire display before Plymouth renders, eliminating the need for pre-rotated content.
 
-## Message Overlay System
+## Message Overlay System (v1.02)
+
+### Overview
+
+Version 1.02 introduces a transparent message overlay system for displaying Volumio boot messages at all rotation angles.
+
+### Why Overlays?
+
+Plymouth's `Image.Text.Rotate()` function does not exist, and attempting to rotate text images produces severe clipping artifacts making messages unreadable on rotated displays. This is a documented limitation affecting all Plymouth themes across Linux distributions.
+
+**Solution**: Pre-rendered transparent PNG overlays with pattern matching.
 
 ### How It Works
 
-Volumio-adaptive v1.02 introduces a transparent message overlay system for displaying boot messages:
+**Z-Index Layering**:
+- Logo animation (Z=1): Renders below
+- Message overlay (Z=2): Renders above with transparency
+- Logo remains visible through transparent areas
 
-**Architecture**:
-- **Logo sprite** (Z-index 1): Volumio animation renders below
-- **Message overlay sprite** (Z-index 2): Transparent PNG with text renders above
-- Logo remains visible through transparent areas of overlay
-- Text appears below logo in all rotation orientations
+**Pattern Matching**:
+Messages use substring matching to handle variable content (version numbers, timeouts, OEM customizations):
+```plymouth
+# Example: Match message with version variable
+if (StringContains(message_text, "prepared, please wait for startup to finish"))
+    return "overlay-player-prepared";
+# Matches: "Version 3.569 prepared, please wait for startup to finish"
+```
 
-**Why Overlays?**
-
-Plymouth's `Image.Text.Rotate()` function exists but produces severe text clipping artifacts when rotated, making boot messages unreadable on portrait displays. This is a documented limitation in upstream Plymouth affecting all Linux distributions. The pre-rendered overlay approach:
-- Guarantees perfect text quality at all rotation angles
-- Eliminates coordinate transformation complexity
-- Works universally across all display configurations
-- Maintains logo visibility through transparency
+**Adaptive Sizing**:
+- Displays ≥ 400px (smallest dimension): 16pt font
+- Displays < 400px (smallest dimension): 12pt font
+- Automatic selection based on screen size
 
 ### Supported Messages
 
-The theme includes pattern matching for 13 critical Volumio boot messages:
+13 Volumio boot messages with pattern matching:
 
 1. Player preparing startup
 2. Finishing storage preparations
@@ -107,9 +121,9 @@ The theme includes pattern matching for 13 critical Volumio boot messages:
 4. Player re-starting now
 5. Receiving player update from USB
 6. Player update from USB completed
-7. Remove USB used for update (critical firmware message)
+7. Remove USB used for update
 8. Performing factory reset
-9. Performing player update (critical firmware message)
+9. Performing player update
 10. Success, player restarts
 11. Expanding internal storage
 12. Waiting for USB devices
@@ -131,13 +145,22 @@ This works correctly regardless of native portrait or landscape orientation.
 
 ### Overlay Specifications
 
-**Image Format**: Transparent PNG
-**Dimensions**: 
-- Sequence 0/180: 480-683 × 380 pixels (landscape)
-- Sequence 90/270: 380 × 480-683 pixels (portrait)
-- Width varies dynamically based on message length
+**Format**: Transparent PNG with white text
+**Count**: 104 images (13 messages × 2 sizes × 4 rotations)
+**Location**: Placed directly in sequence directories alongside animations
 
-**Generation**: Use `generate-overlays.sh` to regenerate overlays with custom messages or fonts. Requires ImageMagick.
+**Generation**: Use `generate-overlays.sh` to create or customize overlays.
+```bash
+cd volumio-adaptive
+./generate-overlays.sh
+# Creates overlays in sequence0/, sequence90/, sequence180/, sequence270/
+```
+
+**Customization**: Edit `generate-overlays.sh` to modify messages, fonts, or sizes, then regenerate.
+
+### Technical Details
+
+See [docs/TECHNICAL.md](docs/TECHNICAL.md) for complete overlay system architecture, pattern matching implementation, and performance characteristics.
 
 ## Package Contents
 
@@ -399,8 +422,9 @@ sudo reboot
 ### Missing images
 
 - Verify generation completed: `ls /usr/share/plymouth/themes/volumio-adaptive/sequence*/`
-- Each directory should have 97 files
-- Re-run `generate-rotated-sequences.sh` if needed
+- Each directory should have 123 files (97 animations + 26 overlays)
+- Re-run `generate-rotated-sequences.sh` for animation frames if needed
+- Run `generate-overlays.sh` for overlay images if needed (v1.02)
 
 See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed troubleshooting including theme-specific issues.
 

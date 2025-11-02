@@ -613,17 +613,35 @@ for dir in /usr/share/plymouth/themes/volumio-adaptive/sequence*/; do
 done
 ```
 
-Each directory should have 97 files.
+Each directory should have 123 files (97 animation frames + 26 message overlays).
 
 ### Solutions
 
-**Solution 1: Regenerate all sequences**
+**Solution 1: Regenerate animation sequences**
 
 ```bash
 cd /path/to/theme/files
 ./generate-rotated-sequences.sh \
   /usr/share/plymouth/themes/volumio-player/sequence \
   /usr/share/plymouth/themes/volumio-adaptive
+```
+
+**Solution 1b: Generate message overlays (v1.02)**
+
+If animation frames exist but overlays are missing:
+
+```bash
+cd /path/to/theme/files
+./generate-overlays.sh
+
+# Then copy to installed theme
+for seq in 0 90 180 270; do
+  sudo cp sequence${seq}/overlay-*.png \
+    /usr/share/plymouth/themes/volumio-adaptive/sequence${seq}/
+done
+
+# Rebuild initramfs
+sudo plymouth-set-default-theme -R volumio-adaptive
 ```
 
 **Solution 2: Check source images**
@@ -642,6 +660,368 @@ Should contain progress-1.png through progress-90.png, micro-1.png through micro
 sudo chown -R volumio:volumio /usr/share/plymouth/themes/volumio-adaptive
 sudo chmod 644 /usr/share/plymouth/themes/volumio-adaptive/sequence*/*.png
 ```
+
+## Problem: Boot Messages Not Displaying (v1.02)
+
+**NOTE**: This section applies only to volumio-adaptive v1.02 with message overlay system.
+
+### Symptom
+
+Logo animation displays correctly but Volumio boot messages do not appear during startup.
+
+### Diagnosis Steps
+
+**Step 1: Verify overlay files exist**
+
+```bash
+# Check for overlay files
+ls /usr/share/plymouth/themes/volumio-adaptive/sequence0/overlay-*.png | wc -l
+# Should show: 26
+
+# Check all rotations
+ls /usr/share/plymouth/themes/volumio-adaptive/sequence*/overlay-*.png | wc -l
+# Should show: 104
+```
+
+**Step 2: Test message display manually**
+
+```bash
+sudo plymouthd --debug --debug-file=/tmp/plymouth-debug.log
+sudo plymouth --show-splash
+sudo plymouth message --text="Player prepared, please wait for startup to finish"
+# Wait 5 seconds - overlay should appear
+sudo plymouth quit
+
+# Check debug log
+cat /tmp/plymouth-debug.log | grep -i message
+```
+
+**Step 3: Verify script version**
+
+```bash
+grep "GetOverlayFilename" /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+# Should return matching lines - function exists in v1.02
+```
+
+**Step 4: Check pattern matching**
+
+Enable debug overlay and check if messages trigger pattern matching:
+
+```bash
+sudo nano /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+# Change: enable_debug_overlay = (Window.GetWidth() < 0);
+# To: enable_debug_overlay = (Window.GetWidth() > -1);
+
+sudo plymouth-set-default-theme -R volumio-adaptive
+sudo reboot
+```
+
+### Common Causes
+
+**Cause 1: Missing overlay files**
+
+Solution: Run `generate-overlays.sh` and copy files to theme directory (see above).
+
+**Cause 2: Wrong script version**
+
+If script doesn't have `GetOverlayFilename()` function, you're running v1.0 script:
+
+```bash
+# Check version
+head -1 /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+# Should show: "...with rotation and overlay messages"
+```
+
+Solution: Replace with v1.02 script and rebuild initramfs:
+
+```bash
+sudo cp volumio-adaptive.script /usr/share/plymouth/themes/volumio-adaptive/
+sudo plymouth-set-default-theme -R volumio-adaptive
+```
+
+**Cause 3: Message text doesn't match patterns**
+
+If Volumio sends messages with unexpected formatting, pattern matching may fail.
+
+Solution: Check actual message text in debug log and add pattern to `GetOverlayFilename()` function.
+
+**Cause 4: File permissions**
+
+```bash
+# Fix permissions
+sudo chmod 644 /usr/share/plymouth/themes/volumio-adaptive/sequence*/overlay-*.png
+```
+
+### Solutions
+
+**Complete overlay system installation:**
+
+```bash
+# 1. Generate overlays
+cd /path/to/volumio-adaptive
+./generate-overlays.sh
+
+# 2. Verify generation
+ls sequence0/overlay-*.png | wc -l
+# Should show: 26
+
+# 3. Copy to installed theme
+for seq in 0 90 180 270; do
+  sudo cp sequence${seq}/overlay-*.png \
+    /usr/share/plymouth/themes/volumio-adaptive/sequence${seq}/
+done
+
+# 4. Verify installation
+ls /usr/share/plymouth/themes/volumio-adaptive/sequence*/overlay-*.png | wc -l
+# Should show: 104
+
+# 5. Rebuild initramfs
+sudo plymouth-set-default-theme -R volumio-adaptive
+
+# 6. Reboot and test
+sudo reboot
+```
+
+## Problem: Overlay Generation Fails (v1.02)
+
+### Symptom
+
+`generate-overlays.sh` script fails with errors or produces no files.
+
+### Diagnosis
+
+```bash
+# Test ImageMagick availability
+which convert
+# Should show: /usr/bin/convert
+
+# Test convert functionality
+convert -version
+# Should show ImageMagick version info
+
+# Check bash version (needs associative arrays)
+bash --version
+# Should be 4.0 or higher
+
+# Check bc availability (for math)
+which bc
+# Should show: /usr/bin/bc
+```
+
+### Common Causes
+
+**Cause 1: ImageMagick not installed**
+
+```bash
+# Install ImageMagick
+sudo apt-get update
+sudo apt-get install imagemagick
+```
+
+**Cause 2: Font not available**
+
+Script uses Liberation-Sans font:
+
+```bash
+# Check available fonts
+convert -list font | grep -i liberation
+# Or try alternative
+convert -list font | grep -i dejavu
+```
+
+Solution: Edit `generate-overlays.sh` and change font:
+
+```bash
+# Change line:
+-font Liberation-Sans
+# To:
+-font DejaVu-Sans
+```
+
+**Cause 3: bc not installed**
+
+```bash
+sudo apt-get install bc
+```
+
+**Cause 4: Permission denied**
+
+```bash
+# Make script executable
+chmod +x generate-overlays.sh
+
+# Run from theme directory
+cd /path/to/volumio-adaptive
+./generate-overlays.sh
+```
+
+**Cause 5: Sequence directories don't exist**
+
+Script requires sequence directories to exist first:
+
+```bash
+# Create directories if missing
+mkdir -p sequence0 sequence90 sequence180 sequence270
+
+# Then generate animations
+./generate-rotated-sequences.sh \
+  /usr/share/plymouth/themes/volumio-player/sequence \
+  .
+
+# Then generate overlays
+./generate-overlays.sh
+```
+
+### Solutions
+
+**Full regeneration procedure:**
+
+```bash
+cd /path/to/volumio-adaptive
+
+# 1. Ensure dependencies
+sudo apt-get install imagemagick bc
+
+# 2. Create directories
+mkdir -p sequence0 sequence90 sequence180 sequence270
+
+# 3. Generate animations first
+./generate-rotated-sequences.sh \
+  /usr/share/plymouth/themes/volumio-player/sequence \
+  .
+
+# 4. Generate overlays
+./generate-overlays.sh
+
+# 5. Verify both
+ls sequence0/*.png | wc -l
+# Should show: 123 (97 animations + 26 overlays)
+
+# 6. Check overlay count specifically
+ls sequence0/overlay-*.png | wc -l
+# Should show: 26
+```
+
+## Problem: Wrong Overlay Size Displayed (v1.02)
+
+### Symptom
+
+Overlay text appears too large or too small for display size.
+
+### Diagnosis
+
+Check which size variant is being selected:
+
+```bash
+# Enable debug overlay
+sudo nano /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+# Change: enable_debug_overlay = (Window.GetWidth() < 0);
+# To: enable_debug_overlay = (Window.GetWidth() > -1);
+
+sudo plymouth-set-default-theme -R volumio-adaptive
+sudo reboot
+
+# Debug overlay will show "FB: WxH" (framebuffer dimensions)
+```
+
+### Adaptive Sizing Logic
+
+- Smallest dimension >= 400px: Uses large overlays (16pt font)
+- Smallest dimension < 400px: Uses compact overlays (12pt font)
+
+**Examples:**
+- 1920x1080: smallest=1080 -> large
+- 1480x320: smallest=320 -> compact
+- 800x600: smallest=600 -> large
+
+### Solutions
+
+**Issue: Text too large on small display**
+
+Manually force compact overlays by editing script:
+
+```plymouth
+# Find line (around line 184):
+if (smaller_dimension < 400) {
+  overlay_size_suffix = "-compact";
+} else {
+  overlay_size_suffix = "";
+}
+
+# Change to always use compact:
+overlay_size_suffix = "-compact";
+```
+
+**Issue: Text too small on large display**
+
+Force large overlays:
+
+```plymouth
+# Change to always use large:
+overlay_size_suffix = "";
+```
+
+**Issue: Want custom breakpoint**
+
+Change 400 to desired pixel value:
+
+```plymouth
+if (smaller_dimension < 600) {  # Changed from 400
+  overlay_size_suffix = "-compact";
+}
+```
+
+After editing, rebuild:
+
+```bash
+sudo plymouth-set-default-theme -R volumio-adaptive
+```
+
+## Problem: Overlay Appears But Logo Missing (v1.02)
+
+### Symptom
+
+Message overlay displays correctly but Volumio logo animation is not visible underneath.
+
+### Cause
+
+Z-index issue or animation not loading.
+
+### Diagnosis
+
+```bash
+# Check if animation files exist
+ls /usr/share/plymouth/themes/volumio-adaptive/sequence0/progress-*.png | wc -l
+# Should show: 90
+
+# Check for micro sequence
+ls /usr/share/plymouth/themes/volumio-adaptive/sequence0/micro-*.png | wc -l
+# Should show: 6
+```
+
+### Solution
+
+**If animation files missing:**
+
+```bash
+./generate-rotated-sequences.sh \
+  /usr/share/plymouth/themes/volumio-player/sequence \
+  /usr/share/plymouth/themes/volumio-adaptive
+```
+
+**If files exist but not displaying:**
+
+Check Z-index in script:
+
+```bash
+grep "logo_sprite.SetZ" /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+# Should show: logo_sprite.SetZ(1);
+
+grep "message_overlay_sprite.SetZ" /usr/share/plymouth/themes/volumio-adaptive/volumio-adaptive.script
+# Should show: message_overlay_sprite.SetZ(2);
+```
+
+Logo must be Z=1, overlay must be Z=2. If reversed, reinstall v1.02 script.
 
 ## Problem: Animation Not Smooth
 
@@ -917,9 +1297,12 @@ sudo plymouth-set-default-theme -R volumio-text
 ### volumio-adaptive
 - Uses: plymouth= parameter (0, 90, 180, 270)
 - Images: Pre-rotated sequences in sequence0/, sequence90/, etc.
+- Messages: Transparent overlay system (v1.02, 13 messages)
+- Overlay count: 26 files per sequence (104 total)
 - Runtime detection: Supported and recommended
 - Debug overlay: Available
 - Parameter location: /boot/cmdline.txt
+- File count: 123 per sequence (97 animations + 26 overlays)
 
 ### volumio-text
 - Uses: video=...,rotate= or fbcon=rotate: parameters
