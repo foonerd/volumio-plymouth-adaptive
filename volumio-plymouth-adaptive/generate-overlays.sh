@@ -1,8 +1,10 @@
 #!/bin/bash
 #
 # Generate all Plymouth overlay images
-# 13 messages x 4 rotations x 2 sizes = 104 images
+# 15 messages x 4 rotations x 2 sizes = 120 images
 # Overlays placed directly in sequence directories alongside animations
+#
+# Supports per-message text color (default: white, warning: yellow)
 #
 
 set -e
@@ -10,7 +12,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$SCRIPT_DIR"
 
-# Message definitions
+# Message definitions: overlay-id -> display text
 declare -A MESSAGES
 MESSAGES["player-preparing"]="Player preparing startup"
 MESSAGES["finishing-storage"]="Finishing storage preparations."
@@ -25,6 +27,13 @@ MESSAGES["success-restart"]="Success, player restarts after 5 seconds"
 MESSAGES["expanding-storage"]="Expanding internal storage space to maximum, this can take a minute"
 MESSAGES["waiting-usb"]="Waiting for USB devices, this should not take long"
 MESSAGES["internal-update"]="Player internal parameters update from successful system upgrade"
+MESSAGES["system-warning"]="System upgrade in progress - DO NOT POWER OFF"
+MESSAGES["system-ready"]="System setup complete. Continuing..."
+
+# Per-message text color (default: white)
+declare -A COLORS
+COLORS["factory-reset"]="yellow"
+COLORS["system-warning"]="yellow"
 
 # Ensure sequence directories exist
 for seq in 0 90 180 270; do
@@ -40,6 +49,7 @@ create_overlay() {
     local size=$2
     local message_id=$3
     local message_text="${MESSAGES[$message_id]}"
+    local fill_color="${COLORS[$message_id]:-white}"
     local output_file="$BASE_DIR/sequence${sequence}/overlay-${message_id}${size}.png"
     
     # Determine font size first
@@ -98,7 +108,7 @@ create_overlay() {
         0)
             # Text at bottom, horizontal
             convert -background none \
-                    -fill white \
+                    -fill "$fill_color" \
                     -font Liberation-Sans \
                     -pointsize $FONT_SIZE \
                     -gravity center \
@@ -114,9 +124,9 @@ create_overlay() {
             ;;
             
         90)
-            # Text rotated 90° clockwise (top-to-bottom reading)
+            # Text rotated 90 clockwise (top-to-bottom reading)
             convert -background none \
-                    -fill white \
+                    -fill "$fill_color" \
                     -font Liberation-Sans \
                     -pointsize $FONT_SIZE \
                     -gravity center \
@@ -135,7 +145,7 @@ create_overlay() {
         180)
             # Text at bottom, upside down
             convert -background none \
-                    -fill white \
+                    -fill "$fill_color" \
                     -font Liberation-Sans \
                     -pointsize $FONT_SIZE \
                     -gravity center \
@@ -143,7 +153,7 @@ create_overlay() {
                     -rotate 180 \
                     /tmp/text_$$.png
             
-            # Composite text onto base at top center (becomes bottom after 180° rotation)
+            # Composite text onto base at top center (becomes bottom after 180 rotation)
             convert /tmp/base_$$.png /tmp/text_$$.png \
                     -gravity north \
                     -geometry +0+20 \
@@ -152,9 +162,9 @@ create_overlay() {
             ;;
             
         270)
-            # Text rotated 270° clockwise (bottom-to-top reading)
+            # Text rotated 270 clockwise (bottom-to-top reading)
             convert -background none \
-                    -fill white \
+                    -fill "$fill_color" \
                     -font Liberation-Sans \
                     -pointsize $FONT_SIZE \
                     -gravity center \
@@ -174,7 +184,7 @@ create_overlay() {
     # Cleanup temp files
     rm -f /tmp/base_$$.png /tmp/text_$$.png
     
-    echo "Created: $output_file (${WIDTH}x${HEIGHT})"
+    echo "Created: $output_file (${WIDTH}x${HEIGHT}) [${fill_color}]"
 }
 
 # Generate all images
@@ -183,7 +193,8 @@ echo "Output: sequence directories in $BASE_DIR"
 echo
 
 for message_id in "${!MESSAGES[@]}"; do
-    echo "Generating overlays for: ${MESSAGES[$message_id]}"
+    color="${COLORS[$message_id]:-white}"
+    echo "Generating overlays for: ${MESSAGES[$message_id]} [${color}]"
     
     # sequence0 - large and compact
     create_overlay 0 "" "$message_id"
@@ -210,4 +221,11 @@ echo "Overlays placed in:"
 for seq in 0 90 180 270; do
     count=$(ls -1 $BASE_DIR/sequence${seq}/overlay-*.png 2>/dev/null | wc -l)
     echo "  sequence${seq}/: $count files"
+done
+echo ""
+echo "Warning overlays (yellow):"
+for seq in 0 90 180 270; do
+    for wid in "${!COLORS[@]}"; do
+        ls -1 $BASE_DIR/sequence${seq}/overlay-${wid}*.png 2>/dev/null
+    done
 done
